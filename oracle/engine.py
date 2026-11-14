@@ -183,8 +183,14 @@ def execute_pytest(context):
         def pytest_runtest_makereport(self, item, call):
             report = (yield).get_result()
             records = context.records[starts.get(item.nodeid, len(context.records)):]
+            recorded_failure = any(not r['passed'] for r in records)
+            exception_type = type(call.excinfo.value).__name__ if call.excinfo else None
+            failure_location = str(call.excinfo.traceback[-1].path) if call.excinfo else None
+            policy_failure = (recorded_failure and exception_type == 'AssertionError' and
+                              failure_location == str(Path(__file__).with_name('test_execution.py')))
             reports.append(dict(test=item.name, phase=report.when, outcome=report.outcome,
-                                recordedFailure=any(not r['passed'] for r in records)))
+                                recordedFailure=recorded_failure, exceptionType=exception_type,
+                                failureLocation=failure_location, expectedPolicyFailure=policy_failure))
 
         @pytest.fixture
         def oracle_context(self):
@@ -200,7 +206,7 @@ def execute_pytest(context):
     completed = {r['test'] for r in reports if r['phase'] == 'call' and r['outcome'] in ('passed', 'failed')}
     missing = sorted(required - completed)
     unexpected = [r for r in reports if r['outcome'] == 'skipped' or
-                  (r['outcome'] == 'failed' and (r['phase'] != 'call' or not r['recordedFailure']))]
+                  (r['outcome'] == 'failed' and (r['phase'] != 'call' or not r['expectedPolicyFailure']))]
     diagnostics = dict(missingTests=missing, unexpectedReports=unexpected, reports=reports,
                        infrastructureError=bool(missing or unexpected or int(code) not in (0, 1)))
     return int(code), stdout.getvalue() + stderr.getvalue(), diagnostics

@@ -114,3 +114,20 @@ def test_hidden_harness_failure_requires_review_even_with_drift(tmp_path, action
     assert evidence['verdict'] == 'REVIEW REQUIRED'
     assert evidence['pytest']['unexpectedReports']
     assert evidence['pytest']['infrastructureError']
+
+
+def test_runtime_error_after_recorded_financial_failure_is_not_ordinary_drift(tmp_path):
+    plugin = tmp_path / 'integrity_after_failure.py'
+    plugin.write_text('''import pytest
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    result = yield
+    if item.name == 'test_generated_reference':
+        result.force_exception(RuntimeError('controlled error after actual financial failures'))
+''')
+    evidence = run_report(REGRESSION, environment={
+        'PYTEST_PLUGINS': 'integrity_after_failure',
+        'PYTHONPATH': str(tmp_path) + os.pathsep + os.environ.get('PYTHONPATH', '')})
+    assert evidence['findings']
+    assert evidence['verdict'] == 'REVIEW REQUIRED'
+    assert evidence['pytest']['infrastructureError']
