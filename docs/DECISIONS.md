@@ -50,3 +50,9 @@
 - Record the genuine source revision and dirty-build indicator as non-secret build metadata. Images without metadata explicitly report an unknown revision; do not invent a synthetic Git repository/commit just to make verification execute. Real repository checkout commits and executed source hashes remain independent provenance.
 - Use a cheap SQLite readiness check, independent of 8090 connectivity, with support for configured Basic authentication. Docker packaging is not a security sandbox for untrusted repository code.
 - Validation completed on the real Docker Engine: image builds and runs as UID 1000; preserving fixture verified across 156 assessments, controlled regression detected across 1087 assessments, minimized witness and JSON/Markdown downloads checked. All 147 Python tests (99 oracle + 48 financial) and 15 Node tests pass. Basic-auth denial/acceptance, credential-free image inputs and normal stop/recreate persistence are verified. Add an isolated Docker CI job that executes the real image and deletes only its own ephemeral CI volume.
+
+## 2026-11-14 — User-authorized Docker release merge
+- The user explicitly requested merging all relevant completed work. Application PR #1 and preserving financial modernization PR #2 are already merged; merge Docker PR #5 into main after final-head checks pass.
+- Retain merge-commit history so the source revisions used by verification evidence remain available. Confirm main contains the tested Docker release tree after merging.
+- Keep controlled-regression PR #3 and demonstration correction PR #4 outside main. They are evidence-only branches, not unfinished release features; main already contains the correct modular prepayment implementation from PR #2.
+- This authorization concerns repository release work only. The application continues to require explicit human action and never auto-merges a modernization candidate.
