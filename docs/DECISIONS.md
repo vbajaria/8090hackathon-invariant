@@ -56,3 +56,9 @@
 - Retain merge-commit history so the source revisions used by verification evidence remain available. Confirm main contains the tested Docker release tree after merging.
 - Keep controlled-regression PR #3 and demonstration correction PR #4 outside main. They are evidence-only branches, not unfinished release features; main already contains the correct modular prepayment implementation from PR #2.
 - This authorization concerns repository release work only. The application continues to require explicit human action and never auto-merges a modernization candidate.
+
+## 2026-11-14 — Remove CI at user request
+- The user explicitly requested ignoring CI and removing it from this repository. Stop the prior CI wait, disable the GitHub Actions workflow, cancel its active runs, and delete .github/workflows/verify.yml.
+- Keep all test suites, oracle execution, Docker health/smoke scripts and local verification commands. CI removal does not remove independent application verification or its safeguards.
+- This decision supersedes the earlier CI-job and CI-gated release decisions. Merge the Docker release with CI removed under the user's existing explicit release authorization, without waiting for or relying on GitHub Actions.
+- Preserve existing run history and evidence; do not delete demonstration branches or merge the intentionally broken regression/correction into main.

@@ -143,6 +143,8 @@ The app retrieved and verified these **remote commits**, not just local fixture 
 
 ## Verification commands
 
+GitHub Actions CI is disabled and its workflow has been removed by request. Tests and verification tools remain available to run locally.
+
 ```sh
 npm run typecheck
 npm test                         # backend/API/security + real Python orchestration
