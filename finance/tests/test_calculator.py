@@ -73,3 +73,18 @@ def test_invalid_inputs_raise_value_error(position, invalid):
     inputs[position] = invalid
     with pytest.raises(ValueError):
         calculate(*inputs)
+
+
+def test_decimal_traps_are_inherited_without_mutating_caller_context():
+    from decimal import Inexact
+
+    with localcontext() as context:
+        context.traps[Inexact] = True
+        context.clear_flags()
+        before = context.copy()
+        with pytest.raises(Inexact):
+            adapter_calculate(1.005, 0, 1)
+        assert getcontext().prec == before.prec
+        assert getcontext().rounding == before.rounding
+        assert getcontext().traps == before.traps
+        assert getcontext().flags == before.flags

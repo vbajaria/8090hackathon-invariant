@@ -1,8 +1,21 @@
 """Pure monthly cash-flow ledger with prepayment and final-month settlement."""
 from decimal import Decimal
 
-from .models import Loan, LoanResult
+from .models import CashFlow, Loan, LoanResult
 from .money import cents
+
+
+def settle_month(balance: Decimal, loan: Loan, payment: Decimal, *, final_month: bool) -> CashFlow:
+    """Settle a month without mutating the loan or accumulating payoff totals.
+
+    Callers supply normalized values and own the Decimal context. Keep the
+    baseline operation order: round interest, compute debt, cap repayment (or
+    settle all debt in the final month), then round the remaining balance.
+    """
+    interest = cents(balance * loan.monthly_rate)
+    due = balance + interest
+    paid = due if final_month else min(payment + loan.extra, due)
+    return CashFlow(interest=interest, paid=paid, balance=cents(due - paid))
 
 
 def repay(loan: Loan, payment: Decimal) -> LoanResult:
@@ -17,12 +30,10 @@ def repay(loan: Loan, payment: Decimal) -> LoanResult:
     total_paid = Decimal(0)
     elapsed = 0
     for elapsed in range(1, loan.term + 1):
-        interest = cents(balance * loan.monthly_rate)
-        due = balance + interest
-        paid = due if elapsed == loan.term else min(payment + loan.extra, due)
-        balance = cents(due - paid)
-        total_interest += interest
-        total_paid += paid
+        flow = settle_month(balance, loan, payment, final_month=elapsed == loan.term)
+        balance = flow.balance
+        total_interest += flow.interest
+        total_paid += flow.paid
         if balance == 0:
             break
     return {

@@ -16,6 +16,15 @@ class Loan:
     extra: Decimal
 
 
+@dataclass(frozen=True)
+class CashFlow:
+    """One rounded monthly settlement, before float transport or accumulation."""
+
+    interest: Decimal
+    paid: Decimal
+    balance: Decimal
+
+
 class LoanResult(TypedDict):
     """Cent-rounded money transported as floats; months is actual payoff time."""
 

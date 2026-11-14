@@ -4,8 +4,8 @@ from decimal import Decimal, localcontext
 
 import pytest
 
-from finance.ledger import repay
-from finance.models import Loan
+from finance.ledger import repay, settle_month
+from finance.models import CashFlow, Loan
 from finance.money import cents, normalize, scheduled_payment
 from finance.validation import validate
 
@@ -46,3 +46,36 @@ def test_one_month_caps_extra_at_total_debt():
 def test_numeric_boundary_validation():
     validate(0.01, 0, 1, 0)
     validate(1e15, 100, 1200, 10 ** 10000)
+
+
+@pytest.mark.parametrize(('balance', 'rate', 'payment', 'extra', 'final_month', 'expected'), [
+    ('0.49', '0.01', '0.10', '0.00', False, ('0.00', '0.10', '0.39')),
+    ('0.50', '0.01', '0.10', '0.00', False, ('0.01', '0.10', '0.41')),
+    ('0.51', '0.01', '0.10', '0.00', False, ('0.01', '0.10', '0.42')),
+    ('0.34', '0', '0.33', '0.00', False, ('0.00', '0.33', '0.01')),
+    ('0.34', '0', '0.33', '0.00', True, ('0.00', '0.34', '0.00')),
+    ('0.34', '0', '0.33', '10.00', True, ('0.00', '0.34', '0.00')),
+    ('1000.00', '0.01', '88.85', '1000.00', False, ('10.00', '1010.00', '0.00')),
+    ('0.01', '0', '0.00', '0.00', False, ('0.00', '0.00', '0.01')),
+    ('0.01', '0', '0.00', '0.01', False, ('0.00', '0.01', '0.00')),
+])
+def test_monthly_settlement(balance, rate, payment, extra, final_month, expected):
+    with localcontext() as context:
+        context.prec = 50
+        loan = Loan(Decimal(balance), Decimal(rate), 12, Decimal(extra))
+        flow = settle_month(loan.principal, loan, Decimal(payment), final_month=final_month)
+        assert flow == CashFlow(*(Decimal(value) for value in expected))
+        assert all(isinstance(value, Decimal) for value in (flow.interest, flow.paid, flow.balance))
+        assert flow.paid + flow.balance == loan.principal + flow.interest
+        with pytest.raises(FrozenInstanceError):
+            flow.balance = Decimal('0')
+
+
+def test_final_settlement_does_not_evaluate_extra_payment():
+    # The baseline final-month conditional is lazy; extra is never added.
+    with localcontext() as context:
+        context.prec = 50
+        loan = Loan(Decimal('0.34'), Decimal('0'), 1, Decimal('NaN'))
+        assert settle_month(loan.principal, loan, Decimal('0.33'), final_month=True) == CashFlow(
+            interest=Decimal('0.00'), paid=Decimal('0.34'), balance=Decimal('0.00'),
+        )
