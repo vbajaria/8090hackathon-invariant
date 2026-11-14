@@ -1,5 +1,5 @@
 """A noisy adapter must not corrupt JSON stdout."""
-from demo.preserved.calculator import calculate as preserved
+from fixture_calculator import calculate as preserved
 print('adapter import diagnostic')
 
 

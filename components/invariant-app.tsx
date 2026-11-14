@@ -47,6 +47,7 @@ import type {
   Step,
 } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { WorkflowGraph } from "@/components/workflow-graph";
 
 type View = "dashboard" | "new-run" | "execution" | "evidence";
 type Dashboard = {
@@ -265,7 +266,9 @@ export function InvariantApp() {
           ? "Verification started. Evidence will update as the oracle completes."
           : name === "submit"
             ? "Work order submitted to Software Factory."
-            : name === "remediate"
+            : name === "attach"
+            ? "Existing 8090 work order associated with this run."
+          : name === "remediate"
               ? "Remediation work order created."
               : "Factory artifacts refreshed.",
       );
@@ -706,7 +709,7 @@ function DashboardView({
           </Button>
           <div className="hero-footnote">
             <Fingerprint size={14} /> Baseline → modernization → behavioral
-            proof
+            evidence
           </div>
         </div>
         <div
@@ -829,7 +832,7 @@ function DashboardView({
           </Empty>
         ) : runs.length === 0 ? (
           <Empty
-            title={search ? "No matching runs" : "Your first proof starts here"}
+            title={search ? "No matching runs" : "Your first verification starts here"}
           >
             {search ? (
               "Try another name, repository, or status."
@@ -1315,6 +1318,7 @@ function ExecutionView({
 }) {
   const [target, setTarget] = useState(run.targetRef);
   const [handoffOpen, setHandoffOpen] = useState(false);
+  const [existingOrder, setExistingOrder] = useState("");
   useEffect(() => setTarget(run.targetRef), [run.id, run.targetRef]);
   const disabled = busy !== null || isActive(run);
   return (
@@ -1399,6 +1403,7 @@ function ExecutionView({
           oracle
         />
       </div>
+      <WorkflowGraph run={run} />
       <div className="convergence">
         <div className="convergence-lines" />
         <div className="convergence-icon">
@@ -1485,6 +1490,17 @@ function ExecutionView({
               Sync artifacts
             </Button>
           </div>
+          {!run.workOrder && (
+            <details className="existing-order">
+              <summary>Already have a work order in 8090?</summary>
+              <div className="field">
+                <label htmlFor="existing-order">Existing work order UUID</label>
+                <input id="existing-order" value={existingOrder} onChange={e => setExistingOrder(e.target.value)} placeholder="Paste the UUID from 8090" />
+              </div>
+              <Button variant="outline" size="sm" disabled={disabled || !connection?.connected || !existingOrder.trim()} onClick={() => void onAction("attach", { workOrderId: existingOrder.trim() })}>Associate existing work order</Button>
+              <p className="micro-text">Read real context and statuses without creating a duplicate request.</p>
+            </details>
+          )}
           <div className="agent-handoff">
             <div>
               <Terminal size={18} />

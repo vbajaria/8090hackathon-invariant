@@ -12,6 +12,7 @@ from pathlib import Path
 from hypothesis import find, settings, errors
 from .cases import SHRINK, VALID, fixed_cases
 from .reference import reference
+from .isolation import WorkerExecutionError
 
 POLICIES = {
     'contract': ('Callable adapter and result contract', 'adapter', 'Export calculate(principal, annual_rate, months, prepayment=0); return finite monetary fields and integer payoff months.'),
@@ -43,6 +44,8 @@ def sanitize(value):
 def outcome(fn, data):
     try:
         return {'kind': 'result', 'value': sanitize(fn(**data))}
+    except WorkerExecutionError:
+        raise
     except Exception as exc:
         return {'kind': 'error', 'errorType': type(exc).__name__, 'message': str(exc)}
 
@@ -90,21 +93,8 @@ def source_analysis(path, source=None):
 
 
 def load(path, source=None):
-    path = Path(path).resolve()
-    source = path.read_bytes() if source is None else source
-    spec = importlib.util.spec_from_file_location('invariant_adapter_' + hashlib.sha256(str(path).encode()).hexdigest()[:12], path)
-    if not spec or not spec.loader:
-        raise ValueError(f'Cannot load Python adapter: {path}')
-    import sys
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module  # dataclasses need registered modules
-    # Compile the captured bytes, never timestamp/size-validated cached bytecode.
-    exec(compile(source, str(path), "exec"), module.__dict__)
-    fn = getattr(module, 'calculate', None)
-    if not callable(fn):
-        raise ValueError('Adapter must export calculate')
-    inspect.signature(fn).bind(principal=1, annual_rate=0, months=1, prepayment=0)
-    return fn
+    from .isolation import AdapterProcess
+    return AdapterProcess(path, source)
 
 
 class Context:
@@ -222,6 +212,15 @@ def verify(baseline_path, candidate_path, baseline_ref, candidate_ref, classific
     baseline_source = source_analysis(baseline_path, snapshots['baseline'])
     candidate_source = source_analysis(candidate_path, snapshots['candidate'])
     context = Context(load(baseline_path, snapshots['baseline']), load(candidate_path, snapshots['candidate']))
+    for label, adapter in [('baseline', context.baseline), ('candidate', context.candidate)]:
+        implementation = adapter.metadata.get('implementation', {})
+        if implementation.get('file') and Path(implementation['file']).is_file():
+            analysis = source_analysis(implementation['file'])
+            analysis['line'] = implementation.get('line', analysis['line'])
+            if label == 'baseline':
+                baseline_source = analysis
+            else:
+                candidate_source = analysis
     pytest_code, pytest_log, pytest_diagnostics = execute_pytest(context)
     # Explicit Hypothesis.find search: not a fabricated or hard-coded "minimal" example.
     failed_invariants = {r['invariantId'] for r in context.records if not r['passed']}
@@ -239,7 +238,7 @@ def verify(baseline_path, candidate_path, baseline_ref, candidate_ref, classific
     invariants = []
     for inv, (title, category, description) in POLICIES.items():
         related = [r for r in context.records if r['invariantId'] == inv]
-        source = {'file': str(candidate_path), 'line': candidate_source['line']}
+        source = {'file': candidate_source['file'], 'line': candidate_source['line']}
         lines = candidate_source['prepaymentLines'] if inv == 'prepayment' else candidate_source['roundingLines'] if inv == 'rounding' else []
         if lines: source['line'] = lines[-1]
         invariants.append(dict(id=inv, title=title, category=category, classification=classifications.get(inv, 'MUST_PRESERVE'),
@@ -255,7 +254,7 @@ def verify(baseline_path, candidate_path, baseline_ref, candidate_ref, classific
                 classification=inv['classification'], severity='high' if inv['classification'] == 'MUST_PRESERVE' else 'medium',
                 title=('Baseline violates independent policy: ' if baseline_bad else 'Candidate changes verified behavior: ') + inv['title'],
                 original=record['original'], candidate=record['candidate'], input=sanitize(record['input']),
-                sourceLocations=[{'file': str(baseline_path), 'line': baseline_source['line']}, inv['source']],
+                sourceLocations=[{'file': baseline_source['file'], 'line': baseline_source['line']}, inv['source']],
                 recommendation='Review baseline defect against financial requirements; do not preserve it blindly.' if baseline_bad else
                     'Confirm the approved policy change and document its scope.' if inv['classification'] != 'MUST_PRESERVE' else 'Restore independent reference agreement and rerun the oracle.',
                 minimal=bool(record.get('minimal')), baselineInvalid=baseline_bad, reference=record['reference'],
@@ -267,21 +266,24 @@ def verify(baseline_path, candidate_path, baseline_ref, candidate_ref, classific
     infrastructure_error = pytest_diagnostics['infrastructureError'] or not context.records or (pytest_code == 1 and not findings)
     source_changed = {label: path.read_bytes() != snapshots[label] for label, path in
                       [('baseline', baseline_path), ('candidate', candidate_path)]}
-    review |= any(source_changed.values())
+    dependency_hashes = {label: adapter.metadata.get('dependencies', {}) for label, adapter in [('baseline', context.baseline), ('candidate', context.candidate)]}
+    dependency_changed = {label: [file for file, digest in dependencies.items() if not Path(file).is_file() or hashlib.sha256(Path(file).read_bytes()).hexdigest() != digest] for label, dependencies in dependency_hashes.items()}
+    review |= any(source_changed.values()) or any(dependency_changed.values())
     verdict = 'REVIEW REQUIRED' if review or infrastructure_error else 'BEHAVIORAL DRIFT: DETECTED' if drift else 'BEHAVIORAL INTEGRITY: VERIFIED'
     def provenance(path, ref, label):
         return {'ref': ref, 'sha256': hashlib.sha256(snapshots[label]).hexdigest(), 'path': str(path)}
     return sanitize(dict(verdict=verdict, invariants=invariants, findings=findings,
         summary={'total': len(context.records), 'passed': sum(r['passed'] for r in context.records), 'failed': sum(not r['passed'] for r in context.records), 'durationMs': round((time.perf_counter() - started) * 1000)},
         baseline=provenance(baseline_path, baseline_ref, 'baseline'), candidate=provenance(candidate_path, candidate_ref, 'candidate'),
-        executionCounts=context.execution_counts, sourceChanged=source_changed, generatedAt=datetime.now(timezone.utc).isoformat(),
+        executionCounts=context.execution_counts, sourceChanged=source_changed, dependencyHashes=dependency_hashes, dependencyChanged=dependency_changed, generatedAt=datetime.now(timezone.utc).isoformat(),
         methodology=['Actual pytest execution of both adapters on boundary, golden, invalid, precision, property and metamorphic cases.',
                      'Seeded Hypothesis generation; explicit hypothesis.find shrinking of candidate/reference counterexamples.',
                      'Independent 60-digit Decimal annuity and monthly cash-flow ledger; baseline is not the source of truth.',
+                     'Separate interpreter workers prevent cached imports from one revision leaking into the other.',
                      'AST extraction of candidate signature, branches, raises, rounding and prepayment source locations, combined with curated financial policies.'],
-        limitations=['Finite tests are evidence, not formal proof.', 'Trusted local Python executes in the parent process environment, not a security sandbox; parent must enforce subprocess timeout.',
+        limitations=['Finite tests are evidence, not formal proof.', 'Each trusted adapter executes in its own Python worker/import namespace; this is not a security sandbox. The parent enforces a process-group timeout.',
                      'Only the documented calculator adapter and financial domain are supported.', 'Shrunk means Hypothesis-minimal within its configured strategy and budget, not a globally smallest counterexample.',
-                     'References are caller-supplied labels; SHA-256 hashes identify the executed adapter source, not imported dependencies.',
+                     'References are caller-supplied labels. Adapter and loaded checkout-owned Python dependency hashes are recorded from compiled bytes, including lazy imports observed during calls. Installed packages, non-Python assets and environment are outside that manifest.',
                      'Intentional classification is a request for review, not approval; unknown policies block verification.',
                      'Returned money uses float transport; internal arithmetic and cent policy use Decimal.'],
         cases=context.records, sourceAnalysis={'baseline': baseline_source, 'candidate': candidate_source}, pytest={'exitCode': pytest_code, 'output': pytest_log, **pytest_diagnostics}))

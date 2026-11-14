@@ -44,18 +44,27 @@ export async function writingRules(): Promise<string> {
   if (typeof response.markdown_content !== "string") throw new FactoryError("Cannot read project work-order writing rules; work order not created.");
   return response.markdown_content;
 }
-export async function createFactoryWorkOrder(title: string, description: string, id: string, requestId: string): Promise<WorkOrder> {
+export async function createFactoryWorkOrder(title: string, description: string, id: string, requestId: string, onCreated?: (order: WorkOrder) => void): Promise<WorkOrder> {
   // Read live project rules before every write; the request shape follows the documented batch API.
   await writingRules();
   const operationId = "create";
   const result = await factoryRequest("/work_orders/batch_create", "POST", {
-    request_id: requestId, operations: [{ operation_id: operationId, operation_type: "CreateWorkOrder", patch: { title, description } }],
+    request_id: requestId, operations: [{ operation_id: operationId, operation_type: "CreateWorkOrder", patch: { title } }],
   });
   const results = result.results as Record<string, Record<string, unknown>> | undefined;
   const created = results?.[operationId];
   if (result.status !== "Succeeded" || created?.status !== "succeeded" || !created.work_order_id) throw new FactoryError(`8090 did not create the work order: ${JSON.stringify(result).slice(0, 1000)}`);
-  const data = unwrap(await factoryRequest(`/work_orders/${created.work_order_id}`));
+  const order: WorkOrder = { id: String(created.work_order_id), number: Number(created.work_order_number), title, status: "backlog", url: `${projectUrl(id)}/work-orders/${created.work_order_number}`, descriptionPending: true };
+  // Persist the returned identity before the separate description write: a timeout must not create a duplicate on retry.
+  onCreated?.(order);
+  await replaceDescription(order.id, description);
+  const data = unwrap(await factoryRequest(`/work_orders/${order.id}`));
+  if (data.markdown_content !== description) throw new FactoryError(`WO-${order.number} was created but its description did not persist. Sync artifacts to retry attaching the evidence.`);
   return normalizeWorkOrder(data, id);
+}
+export async function replaceDescription(orderId: string, description: string) {
+  await writingRules();
+  return factoryRequest(`/work_orders/${orderId}/description`, "PATCH", { markdown_content: description });
 }
 export function modernizationDescription(run: Run) {
   return `## Summary\n\nModernize the Python financial calculator in ${run.repository} while preserving independently captured financial behavior. INVARIANT run ${run.id} records the baseline and independently verifies the resulting implementation.\n\n## In Scope\n\n- Python calculation layer and its tests only (approximately 5–10 files).\n- Baseline: ${run.baselineRef}${run.baselineCommit ? ` (${run.baselineCommit})` : " (built-in fixture label, not a remote commit)"}.\n- Obtain native requirements and blueprint context through 8090 before implementation.\n- Create a working branch and PR; return the immutable candidate commit to INVARIANT.\n\n## Out of Scope\n\n- Changes to INVARIANT's oracle, policies, captured baseline, evidence, or web UI.\n- Merging or approving a pull request.\n- Treating agent-written tests as independent verification.\n\n## Requirements\n\n${run.request}\n\nTest:\n\n* Zero-interest loans.\n* Positive interest.\n* Invalid inputs.\n* Partial prepayment.\n* Full prepayment.\n* Rounding boundaries.\n* Large principal values.\n\nCapture the original behavior before modernization.\n\nSource: Initial Requirements, §7. The source has no numbered acceptance criteria; no requirement IDs have been invented.\n\n## Blueprints\n\n- Pending native 8090 generation; use the project's authenticated agent to create/link the relevant Python calculation blueprint, not a duplicate specification in INVARIANT.\n`;

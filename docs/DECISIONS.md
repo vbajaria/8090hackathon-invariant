@@ -13,3 +13,10 @@
 - Keep captured sources/reports outside Git in private SQLite/runtime storage. Demo labels are fixture labels, not invented remote branches or commits; reports explicitly identify the fixture and actual containing commit.
 - Harden oracle provenance: execute fresh source, detect source mutation, reject incomplete pytest coverage and infrastructure errors. Report Hypothesis search counts and bounded shrinking rather than claiming global minimality.
 - Provide a real root `invariant_adapter.py` baseline so the same repository can be used for immutable Git checkout verification. Agent modernization and controlled-regression branches are separate from the application delivery branch.
+
+## 2026-11-14 — Real financial workflow and import isolation
+- Created native Factory requirement `a1b62fcf-5c16-4703-92bd-2ccde7db817a` and paired blueprint `d9f4d308-43c4-4426-822b-9c18d24ce6cb`, linked to WO-1/WO-2. Content awaits project review; references are real, not synthetic UI records.
+- Native authenticated Factory subagent executed WO-1: PR #2 (`9236d57b867b69497220251e9f99671ea575b141`), 48 unit tests and strict mypy pass; independent oracle verifies 156/156 assessments. This was not an externally OAuth-authenticated MCP session.
+- Separate NOT-FOR-MERGE controlled regression PR #3 (`2ced874262abbd504f78e27e47902af590fe9037`) ignores prepayment and produces genuine differential failures. WO-2 correction PR #4 (`320e9ec9d5d45532a98c05b3655ee357934fc86f`) verifies 156/156 with 8 focused unit tests. Nothing is merged or approved.
+- Harden modular repository verification with separate persistent Python interpreter workers. A shared interpreter can incorrectly reuse baseline packages in the candidate. Ignore inherited PYTHONPATH, use each checkout's root, compile captured adapter bytes, strip credentials, distinguish worker transport failures from business violations.
+- Clear the displayed current report when re-verification starts, preserving append-only report files and remediation history. A prior candidate's verdict must never appear to describe a newly selected ref.
