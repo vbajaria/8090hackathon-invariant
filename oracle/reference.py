@@ -16,7 +16,7 @@ def reference(data):
         ctx.prec = 60
         q = lambda x: x.quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
         principal = q(Decimal(str(p)))
-        extra = q(min(Decimal(str(e)), principal))
+        extra = q(principal if e >= principal else Decimal(str(e)))
         rate = Decimal(0) if a < 1e-28 else Decimal(str(a)) / Decimal(1200)
         # Positive-power annuity expression, independently derived from the discounted formula.
         growth = (Decimal(1) + rate) ** n

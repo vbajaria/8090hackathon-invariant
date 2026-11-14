@@ -36,10 +36,8 @@ def test_generated_metamorphic(oracle_context, data):
 
 
 def test_literal_goldens(oracle_context):
-    from oracle.engine import outcome
     for data, value in [(loan(1200, 0, 12), dict(payment=100.0, total_interest=0.0, total_paid=1200.0, months=12)),
                         (loan(1000, 12, 12), dict(payment=88.85, total_interest=66.19, total_paid=1066.19, months=12))]:
-        ok = oracle_context.evaluate(dict(id='literal-golden', invariantId='zero-rate' if data['annual_rate'] == 0 else 'reference', category='golden', input=data))
-        assert outcome(oracle_context.baseline, data)['value'] == value
-        assert outcome(oracle_context.candidate, data)['value'] == value
-        assert ok
+        assert oracle_context.evaluate(dict(id='literal-golden-' + str(data['annual_rate']),
+            invariantId='zero-rate' if data['annual_rate'] == 0 else 'reference', category='golden',
+            input=data, literalExpected=value))

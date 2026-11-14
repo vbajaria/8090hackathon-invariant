@@ -18,7 +18,7 @@ def calculate(principal, annual_rate, months, prepayment=0):
         balance = money(Decimal(str(principal)))
         initial = balance
         rate = Decimal(0) if annual_rate < 1e-28 else Decimal(str(annual_rate)) / 1200
-        extra = money(min(Decimal(str(prepayment)), balance))
+        extra = money(balance if prepayment >= balance else Decimal(str(prepayment)))
         payment = money(balance / months if rate == 0 else balance * rate / (1 - (1 + rate) ** (-months)))
         total_interest = Decimal(0)
         total_paid = Decimal(0)

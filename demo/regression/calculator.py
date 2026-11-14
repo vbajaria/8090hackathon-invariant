@@ -36,7 +36,7 @@ def calculate(principal: float, annual_rate: float, months: int, prepayment: flo
         context.prec = 50
         amount = cents(Decimal(str(principal)))
         rate = Decimal(0) if annual_rate < 1e-28 else Decimal(str(annual_rate)) / 1200
-        loan = Loan(amount, rate, months, cents(min(Decimal(str(prepayment)), amount)))
+        loan = Loan(amount, rate, months, cents(amount if prepayment >= amount else Decimal(str(prepayment))))
         factor = (1 + loan.monthly_rate) ** (-loan.term)
         installment = cents(loan.principal / loan.term if not loan.monthly_rate else loan.principal * loan.monthly_rate / (1 - factor))
         balance, interest_sum, paid_sum, elapsed = loan.principal, Decimal(0), Decimal(0), 0
