@@ -33,7 +33,7 @@ test("theme toggle follows system, persists override, syncs tabs and remains acc
   await page.getByRole("button", { name: /New verification/ }).first().click();
   await expect(page.getByLabel("Run name", { exact: true })).toBeVisible();
   await page.getByLabel("Run name", { exact: true }).focus();
-  expect(await page.getByLabel("Run name", { exact: true }).evaluate(el => getComputedStyle(el).borderColor)).toBe("rgb(8, 120, 73)");
+  await expect.poll(() => page.getByLabel("Run name", { exact: true }).evaluate(el => getComputedStyle(el).borderColor)).toBe("rgb(8, 120, 73)");
   await page.getByRole("button", { name: "Software Factory connection details" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { name: "Close connection settings" }).click();
