@@ -99,7 +99,7 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: light-dark(#cbd7d2, #5acb9c) !important;
+  border-color: light-dark(#087849, #5acb9c) !important;
   box-shadow: 0 0 0 3px light-dark(#08784920, #74efbc10);
 }
 ::selection {
