@@ -1,0 +1,6 @@
+{
+  "name": "INVARIANT — Next.js and independent Python oracle",
+  "install": "npm ci && python3 -m venv .venv && .venv/bin/pip install -r requirements.lock.txt",
+  "start": "mkdir -p .runtime",
+  "terminals": [{ "name": "invariant", "command": "npm run dev" }]
+}

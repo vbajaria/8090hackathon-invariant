@@ -1,5 +1,5 @@
 """Known bug: charges a phantom dollar of interest even for a zero-rate loan."""
-from demo.baseline.calculator import calculate as baseline
+from fixture_calculator import calculate as baseline
 
 
 def calculate(principal, annual_rate, months, prepayment=0):

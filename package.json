@@ -1,6 +1,38 @@
 {
-  "name": "invariant", "version": "0.1.0", "private": true,
-  "scripts": {"dev":"next dev --hostname 0.0.0.0", "build":"next build", "start":"next start --hostname 0.0.0.0", "typecheck":"tsc --noEmit", "test":"tsx --test tests/*.test.ts", "test:oracle":".venv/bin/python -m pytest oracle/tests -q", "test:e2e":"playwright test"},
-  "dependencies": {"next":"^16.0.0", "react":"^19.2.0", "react-dom":"^19.2.0", "better-sqlite3":"^12.4.0", "zod":"^4.1.0", "lucide-react":"^0.553.0", "@xyflow/react":"^12.9.0", "@radix-ui/react-slot":"^1.2.3", "class-variance-authority":"^0.7.1", "clsx":"^2.1.1", "tailwind-merge":"^3.3.1"},
-  "devDependencies": {"typescript":"^5.9.0", "@types/node":"^22", "@types/react":"^19", "@types/react-dom":"^19", "@types/better-sqlite3":"^7.6.13", "tailwindcss":"^4.1.0", "@tailwindcss/postcss":"^4.1.0", "tsx":"^4.20.0", "@playwright/test":"^1.56.0"}
+  "name": "invariant",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "test:oracle": ".venv/bin/python -m pytest oracle/tests -q",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "better-sqlite3": "^12.4.0",
+    "zod": "^4.1.0",
+    "lucide-react": "^0.553.0",
+    "@xyflow/react": "^12.9.0",
+    "@radix-ui/react-slot": "^1.2.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/better-sqlite3": "^7.6.13",
+    "tailwindcss": "^4.1.0",
+    "@tailwindcss/postcss": "^4.1.0",
+    "tsx": "^4.20.0",
+    "@playwright/test": "^1.56.0"
+  }
 }

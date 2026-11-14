@@ -47,6 +47,7 @@ import type {
   Step,
 } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { WorkflowGraph } from "@/components/workflow-graph";
 
 type View = "dashboard" | "new-run" | "execution" | "evidence";
 type Dashboard = {
@@ -265,8 +266,10 @@ export function InvariantApp() {
           ? "Verification started. Evidence will update as the oracle completes."
           : name === "submit"
             ? "Work order submitted to Software Factory."
-            : name === "remediate"
-              ? "Remediation work order created."
+            : name === "attach"
+            ? "Existing 8090 work order associated with this run."
+          : name === "remediate"
+              ? "Remediation work order connected."
               : "Factory artifacts refreshed.",
       );
     } catch (e) {
@@ -689,7 +692,7 @@ function DashboardView({
       <section className="hero-card">
         <div className="hero-copy">
           <span className="hero-badge">
-            <span /> PROOF, NOT PROMISES
+            <span /> EVIDENCE, NOT PROMISES
           </span>
           <h2>
             Modernize the code.
@@ -706,7 +709,7 @@ function DashboardView({
           </Button>
           <div className="hero-footnote">
             <Fingerprint size={14} /> Baseline → modernization → behavioral
-            proof
+            evidence
           </div>
         </div>
         <div
@@ -761,7 +764,7 @@ function DashboardView({
             label: "Verification runs",
             value: dashboard?.stats.runs,
             icon: Workflow,
-            suffix: "TOTAL EXECUTIONS",
+            suffix: "RECENT RUNS",
           },
           {
             label: "Invariants captured",
@@ -829,7 +832,7 @@ function DashboardView({
           </Empty>
         ) : runs.length === 0 ? (
           <Empty
-            title={search ? "No matching runs" : "Your first proof starts here"}
+            title={search ? "No matching runs" : "Your first verification starts here"}
           >
             {search ? (
               "Try another name, repository, or status."
@@ -1315,6 +1318,7 @@ function ExecutionView({
 }) {
   const [target, setTarget] = useState(run.targetRef);
   const [handoffOpen, setHandoffOpen] = useState(false);
+  const [existingOrder, setExistingOrder] = useState("");
   useEffect(() => setTarget(run.targetRef), [run.id, run.targetRef]);
   const disabled = busy !== null || isActive(run);
   return (
@@ -1399,6 +1403,7 @@ function ExecutionView({
           oracle
         />
       </div>
+      <WorkflowGraph run={run} />
       <div className="convergence">
         <div className="convergence-lines" />
         <div className="convergence-icon">
@@ -1485,6 +1490,17 @@ function ExecutionView({
               Sync artifacts
             </Button>
           </div>
+          {!run.workOrder && (
+            <details className="existing-order">
+              <summary>Already have a work order in 8090?</summary>
+              <div className="field">
+                <label htmlFor="existing-order">Existing work order UUID</label>
+                <input id="existing-order" value={existingOrder} onChange={e => setExistingOrder(e.target.value)} placeholder="Paste the UUID from 8090" />
+              </div>
+              <Button variant="outline" size="sm" disabled={disabled || !connection?.connected || !existingOrder.trim()} onClick={() => void onAction("attach", { workOrderId: existingOrder.trim() })}>Associate existing work order</Button>
+              <p className="micro-text">Read real context and statuses without creating a duplicate request.</p>
+            </details>
+          )}
           <div className="agent-handoff">
             <div>
               <Terminal size={18} />
@@ -1639,6 +1655,7 @@ function EvidenceView({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [findingIds, setFindingIds] = useState<string[]>([]);
+  const [existingRemediation, setExistingRemediation] = useState("");
   const evidence = run.evidence;
   useEffect(() => {
     setSelected(null);
@@ -1651,7 +1668,7 @@ function EvidenceView({
           <div>
             <div className="eyebrow">EVIDENCE EXPLORER</div>
             <h1>
-              Proof takes precedence<span className="heading-dot">.</span>
+              Evidence takes precedence<span className="heading-dot">.</span>
             </h1>
             <p>{run.name}</p>
           </div>
@@ -1978,20 +1995,24 @@ function EvidenceView({
           </div>
           <Button
             disabled={!findingIds.length || busy !== null}
-            onClick={() => void onAction("remediate", { findingIds })}
+            onClick={() => void onAction("remediate", { findingIds, ...(existingRemediation.trim() ? { workOrderId: existingRemediation.trim() } : {}) })}
           >
             {busy === "remediate" ? (
               <Loader2 className="spin" size={14} />
             ) : (
               <Plus size={14} />
             )}
-            Create remediation
+            {existingRemediation.trim() ? "Associate remediation" : "Create remediation"}
             {findingIds.length > 0 && (
               <span className="button-count">{findingIds.length}</span>
             )}
           </Button>
         </section>
       )}
+      {evidence.findings.length > 0 && (
+        <div className="field existing-remediation-field"><label htmlFor="existing-remediation">Existing remediation work order UUID (optional)</label><input id="existing-remediation" placeholder="Leave empty to create a new 8090 work order" value={existingRemediation} onChange={e => setExistingRemediation(e.target.value)} /><p className="micro-text">Associate an existing correction without creating duplicate work. Select the measured findings above.</p></div>
+      )}
+      {!!run.remediations?.length && <section className="panel remediation-history"><h2>Remediation history</h2>{run.remediations.map(rem => <div key={rem.workOrder.id}><a className="inline-link" href={rem.workOrder.url} target="_blank" rel="noreferrer">WO-{rem.workOrder.number} · {rem.workOrder.title}</a><span>{rem.workOrder.status}</span><p>{rem.resolvedAt ? `Independent full-suite correction verified at ${date(rem.resolvedAt)} against ${rem.lastVerifiedCandidate?.slice(0, 12)}. No merge or approval performed.` : "Correction awaits independent re-verification of the target commit."}</p></div>)}</section>}
       <div className="report-notes-grid">
         <section className="panel report-notes">
           <h2>

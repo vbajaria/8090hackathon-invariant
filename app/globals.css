@@ -3268,3 +3268,20 @@ code {
 .agent-handoff > button {
   margin-left: auto;
 }
+
+.workflow-graph { margin-top: 18px; overflow: hidden; }
+.workflow-graph > summary { cursor: pointer; padding: 18px 22px; color: var(--text); font-size: 13px; font-weight: 600; }
+.workflow-graph > summary span { margin-left: 12px; color: var(--muted); font-size: 11px; font-weight: 400; }
+.graph-canvas { height: 650px; border-top: 1px solid var(--border); }
+.graph-state { width: 240px; min-height: 68px; padding: 10px 14px; border: 1px solid; border-radius: 7px; background: #151a21; }
+.graph-state span { display: block; font: 9px var(--font-mono, monospace); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 7px; }
+.graph-state strong { font-size: 12px; color: #eceef4; font-weight: 500; }
+.existing-order { margin-top: 14px; }
+.existing-order summary { font-size: 12px; color: #9da6b8; cursor: pointer; margin-bottom: 12px; }
+@media (max-width: 600px) { .graph-canvas { height: 500px; } .workflow-graph > summary span { display: block; margin: 6px 0 0; } }
+.existing-remediation-field { max-width: 640px; margin: 18px 0 24px; }
+.remediation-history { padding: 24px; margin: 22px 0; }
+.remediation-history h2 { font-size: 15px; margin-bottom: 18px; }
+.remediation-history > div { font-size: 12px; border-top: 1px solid #252c36; padding-top: 14px; }
+.remediation-history > div > span { margin-left: 15px; color: #9ba4b5; }
+.remediation-history p { color: #9ba4b5; margin-top: 10px; line-height: 1.6; }
