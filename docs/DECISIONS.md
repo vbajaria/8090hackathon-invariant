@@ -42,3 +42,23 @@
 - Keep PR #3 (deliberately broken controlled regression) and PR #4 (correction of that demonstration branch) separate from `main`. The preserving implementation in PR #2 already has correct prepayment behavior; applying the demonstration-only patch to main would overwrite the modular adapter and add no release functionality.
 - This is a direct user-authorized release action. INVARIANT itself still never auto-merges or approves a candidate based on finite verification.
 - Integrate the current application base into the existing financial PR before its release merge. The integrated refactor passes 48 component tests and 156 independent case assessments; include the financial component tests in release CI.
+
+## 2026-11-14 — Local Docker launcher
+- Package Next.js, SQLite, Git and the independent Python oracle in one multi-stage Debian-based container; do not introduce a separate verification service or database server. Default local launch uses the compiled app, not a host-dependency/hot-reload bind mount.
+- Bind only loopback on the development machine. Persist SQLite, captured repositories and evidence in a named volume; normal stop/rebuild never deletes it. Run as a non-root user with dropped Linux capabilities and no Docker socket mount.
+- Exclude all developer .env files, .git metadata, runtime data and host dependencies from the build context. Runtime credentials come from the ignored private .env.docker, never build arguments or image layers.
+- Record the genuine source revision and dirty-build indicator as non-secret build metadata. Images without metadata explicitly report an unknown revision; do not invent a synthetic Git repository/commit just to make verification execute. Real repository checkout commits and executed source hashes remain independent provenance.
+- Use a cheap SQLite readiness check, independent of 8090 connectivity, with support for configured Basic authentication. Docker packaging is not a security sandbox for untrusted repository code.
+- Validation completed on the real Docker Engine: image builds and runs as UID 1000; preserving fixture verified across 156 assessments, controlled regression detected across 1087 assessments, minimized witness and JSON/Markdown downloads checked. All 147 Python tests (99 oracle + 48 financial) and 15 Node tests pass. Basic-auth denial/acceptance, credential-free image inputs and normal stop/recreate persistence are verified. Add an isolated Docker CI job that executes the real image and deletes only its own ephemeral CI volume.
+
+## 2026-11-14 — User-authorized Docker release merge
+- The user explicitly requested merging all relevant completed work. Application PR #1 and preserving financial modernization PR #2 are already merged; merge Docker PR #5 into main after final-head checks pass.
+- Retain merge-commit history so the source revisions used by verification evidence remain available. Confirm main contains the tested Docker release tree after merging.
+- Keep controlled-regression PR #3 and demonstration correction PR #4 outside main. They are evidence-only branches, not unfinished release features; main already contains the correct modular prepayment implementation from PR #2.
+- This authorization concerns repository release work only. The application continues to require explicit human action and never auto-merges a modernization candidate.
+
+## 2026-11-14 — Remove CI at user request
+- The user explicitly requested ignoring CI and removing it from this repository. Stop the prior CI wait, disable the GitHub Actions workflow, cancel its active runs, and delete .github/workflows/verify.yml.
+- Keep all test suites, oracle execution, Docker health/smoke scripts and local verification commands. CI removal does not remove independent application verification or its safeguards.
+- This decision supersedes the earlier CI-job and CI-gated release decisions. Merge the Docker release with CI removed under the user's existing explicit release authorization, without waiting for or relying on GitHub Actions.
+- Preserve existing run history and evidence; do not delete demonstration branches or merge the intentionally broken regression/correction into main.

@@ -1,0 +1,31 @@
+name: invariant
+services:
+  invariant:
+    image: invariant:local
+    build:
+      context: .
+      args:
+        INVARIANT_SOURCE_COMMIT: ${INVARIANT_SOURCE_COMMIT:-unknown}
+        INVARIANT_SOURCE_DIRTY: ${INVARIANT_SOURCE_DIRTY:-unknown}
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${INVARIANT_HOST_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      INVARIANT_DATA_DIR: /app/.runtime
+      INVARIANT_PYTHON: /opt/venv/bin/python
+      FACTORY_API_KEY: ${FACTORY_API_KEY:-}
+      FACTORY_PROJECT_ID: ${FACTORY_PROJECT_ID:-111f2375-bea8-4c31-8eb4-dca7f3398144}
+      INVARIANT_PASSWORD: ${INVARIANT_PASSWORD:-}
+      ALLOW_REPOSITORY_EXECUTION: ${ALLOW_REPOSITORY_EXECUTION:-false}
+    volumes:
+      - invariant-data:/app/.runtime
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+volumes:
+  invariant-data:

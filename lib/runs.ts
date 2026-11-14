@@ -6,6 +6,7 @@ import { z } from "zod";
 import { audit, getRun, listRuns, runtimeDir, saveRun } from "./db";
 import { agentHandoff, connection, createFactoryWorkOrder, factoryRequest, items, modernizationDescription, normalizeWorkOrder, projectId, remediationDescription, replaceDescription, unwrap } from "./factory";
 import { checked, execute } from "./process";
+import { applicationSource } from "./provenance";
 import type { Classification, Evidence, Run, Status, Step } from "./types";
 
 const ref = z.string().min(1).max(200).regex(/^[a-zA-Z0-9][a-zA-Z0-9_./-]*$/, "Use a branch or commit reference, not a command or expression.").refine(s => !s.includes("..") && !s.endsWith(".lock") && !s.includes("//"), "Invalid Git reference.");
@@ -77,7 +78,9 @@ async function runOracle(run: Run, baseline: string, candidate: string, classifi
   for (const file of (await readdir(path.resolve("oracle"))).filter(file => file.endsWith(".py")).sort()) {
     sourceHashes[`oracle/${file}`] = createHash("sha256").update(await readFile(path.resolve("oracle", file))).digest("hex");
   }
-  evidence.verificationEngine = { gitCommit: await checked("git", ["rev-parse", "HEAD"]), sourceHashes, repositoryStatus: await checked("git", ["status", "--porcelain"]) };
+  const source = await applicationSource();
+  evidence.verificationEngine = { ...source, gitCommit: source.gitCommit ?? null, sourceHashes };
+  if (source.kind === "container") evidence.limitations.push("Image source revision/cleanliness comes from build metadata, not an included Git checkout. Executed source hashes are recorded independently.");
   return evidence;
 }
 async function capture(id: string) {
@@ -87,15 +90,15 @@ async function capture(id: string) {
   if (run.mode === "repository") { const checkout = await resolveCheckout(run, run.baselineRef, "baseline"); baselinePath = checkout.adapter; baselineCommit = checkout.commit; }
   else {
     const source = path.resolve("demo/baseline/calculator.py"); baselinePath = path.join(dir, "baseline.py"); await copyFile(source, baselinePath);
-    baselineCommit = await checked("git", ["rev-parse", "HEAD"]);
+    baselineCommit = (await applicationSource()).gitCommit;
   }
   update(id, r => { r.baselinePath = baselinePath; r.baselineCommit = baselineCommit; });
   const baselineRun = requireRun(id);
   const captured = await runOracle({ ...baselineRun, candidateCommit: baselineCommit, targetRef: baselineRun.baselineRef }, baselinePath, baselinePath);
   await writeFile(path.join(dir, "baseline-capture.json"), JSON.stringify(captured, null, 2), { mode: 0o600 });
   const source = await readFile(/* turbopackIgnore: true */ baselinePath); const sha = createHash("sha256").update(source).digest("hex");
-  audit(id, "baseline_captured", `sha256:${sha}; commit:${baselineCommit}; ${captured.summary.total} case assessments; ${captured.verdict}`);
-  step(id, "oracleSteps", 0, "completed", `Immutable baseline source ${sha.slice(0, 12)} · ${captured.summary.total} assessed cases. ${run.mode !== "repository" ? "Bundled fixture at captured app commit, not the entered remote branch." : "Resolved remote commit captured."}`);
+  audit(id, "baseline_captured", `sha256:${sha}; commit:${baselineCommit || "unknown (image)"}; ${captured.summary.total} case assessments; ${captured.verdict}`);
+  step(id, "oracleSteps", 0, "completed", `Immutable baseline source ${sha.slice(0, 12)} · ${captured.summary.total} assessed cases. ${run.mode !== "repository" ? "Bundled fixture from captured application source, not the entered remote branch." : "Resolved remote commit captured."}`);
   step(id, "oracleSteps", 1, "completed", `${captured.invariants.length} curated financial policies supported by AST/source analysis.`);
   step(id, "oracleSteps", 2, "completed", "Explicit financial contract policies; candidate changes are not automatically authorized.");
   step(id, "oracleSteps", 3, "completed", "Golden, boundary, invalid-input, Hypothesis, metamorphic and Decimal reference checks executed independently.");
@@ -103,19 +106,19 @@ async function capture(id: string) {
 async function verify(id: string, classifications?: Record<string, Classification>) {
   let run = requireRun(id); if (!run.baselinePath) throw new RunError("Capture the baseline before verifying.");
   step(id, "oracleSteps", 4, "running", "Retrieving the candidate without changing the captured baseline.");
-  let candidatePath: string, candidateCommit: string;
+  let candidatePath: string, candidateCommit: string | undefined;
   if (run.mode === "repository") { const checkout = await resolveCheckout(run, run.targetRef, "candidate"); candidatePath = checkout.adapter; candidateCommit = checkout.commit; }
   else {
     const source = path.resolve(`demo/${run.mode === "demo-regression" ? "regression" : "preserved"}/calculator.py`);
-    candidatePath = path.join(runDirectory(id), "candidate.py"); await copyFile(source, candidatePath); candidateCommit = await checked("git", ["rev-parse", "HEAD"]);
+    candidatePath = path.join(runDirectory(id), "candidate.py"); await copyFile(source, candidatePath); candidateCommit = (await applicationSource()).gitCommit;
   }
   update(id, r => { r.candidatePath = candidatePath; r.candidateCommit = candidateCommit; });
-  step(id, "oracleSteps", 4, "completed", run.mode === "repository" ? `Candidate commit ${candidateCommit.slice(0, 12)} retrieved.` : `Actual bundled ${run.mode === "demo-regression" ? "controlled regression" : "preserving modernization"} fixture. Not an agent-generated implementation.`);
+  step(id, "oracleSteps", 4, "completed", run.mode === "repository" ? `Candidate commit ${candidateCommit?.slice(0, 12)} retrieved.` : `Actual bundled ${run.mode === "demo-regression" ? "controlled regression" : "preserving modernization"} fixture. Not an agent-generated implementation.`);
   step(id, "oracleSteps", 5, "running", "Executing both versions against the independent Python oracle.");
   run = requireRun(id);
   const evidence = await runOracle(run, run.baselinePath!, candidatePath, classifications);
   evidence.limitations.push(run.mode === "repository" ? "Trusted local Python adapter execution; not a security sandbox. No candidate dependencies were auto-installed." : "Bundled fixtures are a controlled executable demonstration, not proof that an external coding agent completed a modernization.");
-  if (run.mode !== "repository") { evidence.baseline.ref = `bundled-baseline@${run.baselineCommit}`; evidence.candidate.ref = `bundled-${run.mode === "demo-regression" ? "controlled-regression" : "preserved"}@${candidateCommit}`; }
+  if (run.mode !== "repository") { evidence.baseline.ref = `bundled-baseline@${run.baselineCommit || "unversioned-container"}`; evidence.candidate.ref = `bundled-${run.mode === "demo-regression" ? "controlled-regression" : "preserved"}@${candidateCommit || "unversioned-container"}`; }
   await writeFile(path.join(runDirectory(id), `evidence-${Date.now()}.json`), JSON.stringify(evidence, null, 2), { mode: 0o600 });
   update(id, r => {
     for (const remediation of r.remediations || []) {
