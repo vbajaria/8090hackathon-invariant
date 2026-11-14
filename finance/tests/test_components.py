@@ -1,6 +1,6 @@
 """Targeted tests for independently callable financial components."""
 from dataclasses import FrozenInstanceError
-from decimal import Decimal, localcontext
+from decimal import Decimal, Inexact, InvalidOperation, ROUND_DOWN, localcontext
 
 import pytest
 
@@ -75,7 +75,28 @@ def test_final_settlement_does_not_evaluate_extra_payment():
     # The baseline final-month conditional is lazy; extra is never added.
     with localcontext() as context:
         context.prec = 50
-        loan = Loan(Decimal('0.34'), Decimal('0'), 1, Decimal('NaN'))
+        context.traps[InvalidOperation] = True
+        loan = Loan(Decimal('0.34'), Decimal('0'), 1, Decimal('sNaN'))
         assert settle_month(loan.principal, loan, Decimal('0.33'), final_month=True) == CashFlow(
             interest=Decimal('0.00'), paid=Decimal('0.34'), balance=Decimal('0.00'),
         )
+
+
+def test_monthly_interest_inherits_decimal_traps():
+    with localcontext() as context:
+        context.prec = 50
+        context.traps[Inexact] = True
+        loan = Loan(Decimal('0.50'), Decimal('0.01'), 12, Decimal('0'))
+        with pytest.raises(Inexact):
+            settle_month(loan.principal, loan, Decimal('0.10'), final_month=False)
+
+
+def test_monthly_interest_rounds_half_up_even_in_round_down_context():
+    with localcontext() as context:
+        context.prec = 50
+        context.rounding = ROUND_DOWN
+        loan = Loan(Decimal('0.50'), Decimal('0.01'), 12, Decimal('0'))
+        assert settle_month(loan.principal, loan, Decimal('0.10'), final_month=False) == CashFlow(
+            interest=Decimal('0.01'), paid=Decimal('0.10'), balance=Decimal('0.41'),
+        )
+        assert context.rounding == ROUND_DOWN
