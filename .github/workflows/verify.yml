@@ -24,6 +24,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:oracle
+      - run: .venv/bin/python -m pytest finance/tests -q
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
