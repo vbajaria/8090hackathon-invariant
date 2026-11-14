@@ -35,3 +35,9 @@
 - Post-rebuild browser inspection confirmed restored real reports and authenticated API connectivity. Browser-extension recorder failures are platform diagnostics, not app errors; fixed the app's missing favicon. Real Playwright tests independently check browser page errors and report behavior.
 - Fresh-rebuild production tracing attempted to follow the external virtualenv Python symlink. Mark runtime-only filesystem paths with supported Turbopack ignore annotations; the subsequent production build passes without warnings. The app still executes real local Python at runtime.
 - Preserve previously recorded remediation links when upgrading/re-verifying older runs, instead of losing them when clearing stale evidence.
+
+## 2026-11-14 — Explicitly authorized release merges
+- The user explicitly requested merging the connected GitHub repository. Merge the application PR #1 into `main`, then retarget and merge the preserving financial modernization PR #2 into `main`.
+- Use merge commits to preserve the original commit IDs referenced by behavioral evidence; do not squash/rewrite the verified history.
+- Keep PR #3 (deliberately broken controlled regression) and PR #4 (correction of that demonstration branch) separate from `main`. The preserving implementation in PR #2 already has correct prepayment behavior; applying the demonstration-only patch to main would overwrite the modular adapter and add no release functionality.
+- This is a direct user-authorized release action. INVARIANT itself still never auto-merges or approves a candidate based on finite verification.
