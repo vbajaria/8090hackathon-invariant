@@ -38,6 +38,13 @@ test("controlled regression produces genuine shrunk counterexamples", async () =
   assert.equal(run.evidence?.verdict, "BEHAVIORAL DRIFT: DETECTED");
   assert.ok(run.evidence!.findings.some(f => f.minimal && f.invariantId === "prepayment"));
   assert.ok(run.evidence!.summary.failed > 0);
+  const finding = run.evidence!.findings[0];
+  finding.remediationWorkOrder = { id: "test-existing-order", number: 42, title: "Existing correction fixture", status: "in_review" };
+  saveRun(run);
+  const rerun = startVerification(run.id, {});
+  assert.equal(rerun.remediations?.[0].workOrder.number, 42);
+  const refreshed = await finished(run.id);
+  assert.equal(refreshed.evidence?.findings.find(f => f.id === finding.id)?.remediationWorkOrder?.number, 42);
 });
 
 test("repositories require explicit trust opt-in and interrupted runs never pretend complete", async () => {

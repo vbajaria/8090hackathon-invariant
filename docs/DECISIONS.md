@@ -33,3 +33,5 @@
 - Ignore Next's generated `next-env.d.ts`, which differs between dev/build modes; run `next typegen` before type-checking so clean clones are supported.
 - Add CI that runs API/security/orchestration, adversarial oracle, production build and real browser tests without external credentials or work-order mutations.
 - Post-rebuild browser inspection confirmed restored real reports and authenticated API connectivity. Browser-extension recorder failures are platform diagnostics, not app errors; fixed the app's missing favicon. Real Playwright tests independently check browser page errors and report behavior.
+- Fresh-rebuild production tracing attempted to follow the external virtualenv Python symlink. Mark runtime-only filesystem paths with supported Turbopack ignore annotations; the subsequent production build passes without warnings. The app still executes real local Python at runtime.
+- Preserve previously recorded remediation links when upgrading/re-verifying older runs, instead of losing them when clearing stale evidence.

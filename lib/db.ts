@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { Run } from "./types";
 
-export const runtimeDir = path.resolve(process.env.INVARIANT_DATA_DIR || ".runtime");
+export const runtimeDir = path.resolve(/* turbopackIgnore: true */ process.env.INVARIANT_DATA_DIR || ".runtime");
 let database: Database.Database | undefined;
 export function db() {
   if (!database) {

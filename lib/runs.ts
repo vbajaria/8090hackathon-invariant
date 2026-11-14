@@ -59,14 +59,14 @@ async function resolveCheckout(run: Run, reference: string, label: string) {
   const commit = await checked("git", ["rev-parse", "--verify", "FETCH_HEAD^{commit}"], dir);
   await checked("git", ["-c", "core.hooksPath=/dev/null", "checkout", "--detach", commit], dir);
   const adapter = path.join(dir, "invariant_adapter.py");
-  if (!existsSync(adapter)) throw new RunError("Repository must contain invariant_adapter.py exporting calculate(principal, annual_rate, months, prepayment=0). See docs/ORACLE.md. No adapter was fabricated.");
+  if (!existsSync(/* turbopackIgnore: true */ adapter)) throw new RunError("Repository must contain invariant_adapter.py exporting calculate(principal, annual_rate, months, prepayment=0). See docs/ORACLE.md. No adapter was fabricated.");
   const resolved = await realpath(adapter);
   if (!resolved.startsWith(`${dir}${path.sep}`) || !(await stat(resolved)).isFile()) throw new RunError("The adapter must be a regular file inside the checkout, not an external symlink.");
   return { adapter: resolved, commit, dir };
 }
 async function runOracle(run: Run, baseline: string, candidate: string, classifications?: Record<string, Classification>): Promise<Evidence> {
-  const python = process.env.INVARIANT_PYTHON || path.resolve(".venv/bin/python");
-  if (!existsSync(python) && !process.env.INVARIANT_PYTHON) throw new RunError("Python oracle dependencies are missing. Run python -m venv .venv && .venv/bin/pip install -r requirements.txt.");
+  const python = process.env.INVARIANT_PYTHON || path.resolve(/* turbopackIgnore: true */ ".venv/bin/python");
+  if (!existsSync(/* turbopackIgnore: true */ python) && !process.env.INVARIANT_PYTHON) throw new RunError("Python oracle dependencies are missing. Run python -m venv .venv && .venv/bin/pip install -r requirements.txt.");
   const args = ["-m", "oracle.runner", "--baseline", baseline, "--candidate", candidate, "--baseline-ref", run.baselineCommit || run.baselineRef, "--candidate-ref", run.candidateCommit || run.targetRef];
   if (classifications) args.push("--classifications", JSON.stringify(classifications));
   const result = await execute(python, args, { timeout: 90000 });
@@ -93,7 +93,7 @@ async function capture(id: string) {
   const baselineRun = requireRun(id);
   const captured = await runOracle({ ...baselineRun, candidateCommit: baselineCommit, targetRef: baselineRun.baselineRef }, baselinePath, baselinePath);
   await writeFile(path.join(dir, "baseline-capture.json"), JSON.stringify(captured, null, 2), { mode: 0o600 });
-  const source = await readFile(baselinePath); const sha = createHash("sha256").update(source).digest("hex");
+  const source = await readFile(/* turbopackIgnore: true */ baselinePath); const sha = createHash("sha256").update(source).digest("hex");
   audit(id, "baseline_captured", `sha256:${sha}; commit:${baselineCommit}; ${captured.summary.total} case assessments; ${captured.verdict}`);
   step(id, "oracleSteps", 0, "completed", `Immutable baseline source ${sha.slice(0, 12)} · ${captured.summary.total} assessed cases. ${run.mode !== "repository" ? "Bundled fixture at captured app commit, not the entered remote branch." : "Resolved remote commit captured."}`);
   step(id, "oracleSteps", 1, "completed", `${captured.invariants.length} curated financial policies supported by AST/source analysis.`);
@@ -141,7 +141,21 @@ export function startVerification(id: string, raw: unknown) {
   if (run.mode !== "repository" && input.targetRef && input.targetRef !== run.targetRef) throw new RunError("A built-in demo uses a fixed, labeled candidate fixture. Create a repository run to verify a real Git ref.");
   if (run.mode === "repository" && process.env.ALLOW_REPOSITORY_EXECUTION !== "true") throw new RunError("Trusted repository execution is disabled.", 403);
   const classifications = { ...Object.fromEntries((run.evidence?.invariants || []).map(i => [i.id, i.classification])), ...input.classifications };
-  update(id, r => { r.status = "running"; r.error = undefined; r.evidence = undefined; if (input.targetRef) r.targetRef = input.targetRef; r.oracleSteps.slice(4).forEach(s => { s.status = "pending"; s.detail = undefined; }); });
+  update(id, r => {
+    // Preserve associations created before remediation history was introduced.
+    if (!r.remediations?.length) {
+      const grouped = new Map<string, NonNullable<Run["remediations"]>[number]>();
+      for (const finding of r.evidence?.findings || []) if (finding.remediationWorkOrder) {
+        const order = finding.remediationWorkOrder;
+        const rem = grouped.get(order.id) || { workOrder: order, findingIds: [], createdAt: new Date().toISOString() };
+        rem.findingIds.push(finding.id); grouped.set(order.id, rem);
+      }
+      r.remediations = Array.from(grouped.values());
+    }
+    r.status = "running"; r.error = undefined; r.evidence = undefined;
+    if (input.targetRef) r.targetRef = input.targetRef;
+    r.oracleSteps.slice(4).forEach(s => { s.status = "pending"; s.detail = undefined; });
+  });
   audit(id, "verification_started", JSON.stringify({ targetRef: input.targetRef || run.targetRef, classifications }));
   launch(id, () => verify(id, classifications)); return requireRun(id);
 }
