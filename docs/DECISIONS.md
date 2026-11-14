@@ -27,3 +27,9 @@
 - Record exact Python/pytest/Hypothesis versions, pin oracle dependencies, hash verification-engine files and loaded Python dependencies, and provide checkout-based replay commands in Markdown reports.
 - Keep deployment to one long-running Node process with local Python and SQLite. Do not claim stateless/serverless support or hostile-code sandboxing. Provide optional HTTP Basic authentication for shared deployments; require HTTPS and a configured password outside the private development workspace.
 - Use real API/browser/oracle tests. Keep React Flow's attribution, avoid formal-proof marketing, and retain explicit finite-scope limitations.
+
+## 2026-11-14 — Rebuild and release checks
+- Fresh workspace rebuild successfully installed the pinned dependencies and started the declared Next dev terminal. Ignored runtime data and credential files do not survive a clean rebuild: restored the credential-free evidence backup from Knowledge Base and recreated the server-only key file with mode 0600. No credential was uploaded with evidence. Production deployments must use persistent storage and securely provision environment variables.
+- Ignore Next's generated `next-env.d.ts`, which differs between dev/build modes; run `next typegen` before type-checking so clean clones are supported.
+- Add CI that runs API/security/orchestration, adversarial oracle, production build and real browser tests without external credentials or work-order mutations.
+- Post-rebuild browser inspection confirmed restored real reports and authenticated API connectivity. Browser-extension recorder failures are platform diagnostics, not app errors; fixed the app's missing favicon. Real Playwright tests independently check browser page errors and report behavior.
