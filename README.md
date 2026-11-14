@@ -40,7 +40,9 @@ Requires only **Docker Desktop** (or Docker Engine with the Compose plugin v2.20
 ./scripts/docker.sh up
 ```
 
-Open **http://localhost:3000**. The first launch builds the image and creates a private, ignored `.env.docker`; the built-in demos work without an API key. The script waits for the application and SQLite to become healthy.
+Open **http://localhost:3000**. Use the sun/moon button in the top bar to switch light/dark mode. The app follows your system preference until you choose a mode, then remembers it in this browser.
+
+The first launch builds the image and creates a private, ignored `.env.docker`; the built-in demos work without an API key. The script waits for the application and SQLite to become healthy.
 
 ```sh
 ./scripts/docker.sh status  # readiness and published port

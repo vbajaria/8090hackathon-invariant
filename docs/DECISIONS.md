@@ -62,3 +62,9 @@
 - Keep all test suites, oracle execution, Docker health/smoke scripts and local verification commands. CI removal does not remove independent application verification or its safeguards.
 - This decision supersedes the earlier CI-job and CI-gated release decisions. Merge the Docker release with CI removed under the user's existing explicit release authorization, without waiting for or relying on GitHub Actions.
 - Preserve existing run history and evidence; do not delete demonstration branches or merge the intentionally broken regression/correction into main.
+
+## 2026-11-14 — Light and dark application themes
+- Add an accessible header toggle with a browser-local preference. Follow the system scheme until the user chooses a mode, synchronize across tabs, and keep toggling functional when storage is blocked.
+- Apply the preference before initial paint to avoid a wrong-theme flash; preserve the original dark palette and supply readable light counterparts for panels, forms, status findings, buttons and the workflow graph.
+- Keep this change limited to presentation. Do not change financial/oracle behavior, credentials, evidence, or reintroduce CI. The user explicitly authorized merging this theme PR after local verification.
+- Local verification: 17 Node tests and five real-browser tests pass against the built Docker image, including system preference, reload persistence, tab synchronization, storage denial, keyboard toggling, 320/390px layouts, and actual oracle findings/graph/evidence in both modes. Keep input focus clearly visible in light mode. Browser-extension recorder 401 errors are platform diagnostics, not application errors.
