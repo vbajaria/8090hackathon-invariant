@@ -33,3 +33,22 @@ jobs:
         with:
           name: verification-diagnostics
           path: test-results/
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: invariant-docker-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Launch the real image
+        run: ./scripts/docker.sh up
+      - name: Exercise independent verification in the container
+        run: ./scripts/docker.sh smoke
+      - name: Run Python oracle and financial component tests in the image
+        run: docker compose --env-file .env.docker exec -T invariant /opt/venv/bin/python -m pytest oracle/tests finance/tests -q
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose --env-file .env.docker logs --no-color
+      - name: Clean up isolated CI containers and test data
+        if: always()
+        run: docker compose --env-file .env.docker down --volumes

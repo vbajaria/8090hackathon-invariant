@@ -98,7 +98,7 @@ async function capture(id: string) {
   await writeFile(path.join(dir, "baseline-capture.json"), JSON.stringify(captured, null, 2), { mode: 0o600 });
   const source = await readFile(/* turbopackIgnore: true */ baselinePath); const sha = createHash("sha256").update(source).digest("hex");
   audit(id, "baseline_captured", `sha256:${sha}; commit:${baselineCommit || "unknown (image)"}; ${captured.summary.total} case assessments; ${captured.verdict}`);
-  step(id, "oracleSteps", 0, "completed", `Immutable baseline source ${sha.slice(0, 12)} · ${captured.summary.total} assessed cases. ${run.mode !== "repository" ? "Bundled fixture at captured app commit, not the entered remote branch." : "Resolved remote commit captured."}`);
+  step(id, "oracleSteps", 0, "completed", `Immutable baseline source ${sha.slice(0, 12)} · ${captured.summary.total} assessed cases. ${run.mode !== "repository" ? "Bundled fixture from captured application source, not the entered remote branch." : "Resolved remote commit captured."}`);
   step(id, "oracleSteps", 1, "completed", `${captured.invariants.length} curated financial policies supported by AST/source analysis.`);
   step(id, "oracleSteps", 2, "completed", "Explicit financial contract policies; candidate changes are not automatically authorized.");
   step(id, "oracleSteps", 3, "completed", "Golden, boundary, invalid-input, Hypothesis, metamorphic and Decimal reference checks executed independently.");

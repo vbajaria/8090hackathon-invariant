@@ -32,6 +32,58 @@ npm start
 
 Deploy the full application checkout with Node, Python, `.venv`, Git, and a persistent `.runtime` directory. This is a long-running Node application, **not a stateless/serverless or static export**. Do not rely on a Next standalone bundle to contain the external Python runtime.
 
+## Launch locally with Docker
+
+Requires only **Docker Desktop** (or Docker Engine with the Compose plugin v2.20+). Bash scripts work on macOS/Linux and Windows via WSL/Git Bash. Node, Python and SQLite dependencies are installed inside the image.
+
+```sh
+./scripts/docker.sh up
+```
+
+Open **http://localhost:3000**. The first launch builds the image and creates a private, ignored `.env.docker`; the built-in demos work without an API key. The script waits for the application and SQLite to become healthy.
+
+```sh
+./scripts/docker.sh status  # readiness and published port
+./scripts/docker.sh logs    # follow logs; Ctrl-C only stops following
+./scripts/docker.sh smoke   # two REAL verification runs + report checks; no external work orders
+./scripts/docker.sh down    # stop containers, KEEP all data
+./scripts/docker.sh up      # rebuild/relaunch; existing data remains
+```
+
+To connect 8090, configure an optional Basic-auth password, or use another host port, edit `.env.docker` (not the Dockerfile):
+
+```dotenv
+INVARIANT_HOST_PORT=3000
+FACTORY_API_KEY=<your project-scoped External API key>
+FACTORY_PROJECT_ID=<matching project UUID>
+INVARIANT_PASSWORD=
+ALLOW_REPOSITORY_EXECUTION=false
+```
+
+Keys/passwords are supplied **only at container runtime**, never baked into an image or build argument. Use single quotes around values containing `$`, and keep the file private (`chmod 600 .env.docker`). After changing settings, run `./scripts/docker.sh up` to apply them. A configured password uses username `invariant`.
+
+### Direct Compose / Windows PowerShell
+
+The lifecycle script records the actual source revision and dirty-build indicator without including `.git` in the image. You can also use Compose directly:
+
+```sh
+# Copy .env.docker.example to .env.docker, then edit it if needed.
+docker compose --env-file .env.docker up --build --detach --wait
+docker compose --env-file .env.docker logs --follow
+docker compose --env-file .env.docker down
+```
+
+Without source metadata, direct builds **explicitly report an unversioned image**, not a fabricated Git revision. For revision-tagged PowerShell builds, set `$env:INVARIANT_SOURCE_COMMIT = git rev-parse HEAD` and set `$env:INVARIANT_SOURCE_DIRTY` to `true` or `false` according to `git status --porcelain` before the Compose build. Recorded source hashes still identify the actual Python files executed.
+
+### Data, configuration and safety
+
+- One non-root container contains the compiled Next app, Python oracle, Git and native SQLite. It binds **only `127.0.0.1`** by default. This is a predictable local launch, not a hot-reload source bind mount; re-run `up` after code changes.
+- The named `invariant_invariant-data` volume persists SQLite, captured checkouts and reports at `/app/.runtime`. Ordinary `down`, `restart` and rebuilds do not remove it. **Do not use `docker compose down --volumes` unless you intentionally want to erase all runs/evidence.**
+- To run a separate instance/test volume, set `COMPOSE_PROJECT_NAME`; to select a different environment file, set `INVARIANT_DOCKER_ENV_FILE` when using the script. Adjust its host port to avoid collisions.
+- The image excludes host `.env*`, `.git`, `.runtime`, virtualenvs and `node_modules`; it never mounts the host Docker socket. No key is needed for health/readiness or offline demo verification.
+- Docker packaging is **not a hostile-code sandbox**. Keep repository execution disabled unless you have reviewed and trust the target. Containers with Docker-daemon access or the same-user process/filesystem access are not an independent security boundary for secrets.
+- If port 3000 is in use, change `INVARIANT_HOST_PORT`. If Docker is not running, start Docker Desktop. If startup fails, inspect `./scripts/docker.sh logs` and `status`.
+
 ## Connect the real 8090 project
 
 Set these **server-side** environment variables:
