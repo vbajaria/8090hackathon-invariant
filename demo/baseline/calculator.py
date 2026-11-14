@@ -5,7 +5,7 @@ import math
 
 def calculate(principal, annual_rate, months, prepayment=0):
     for name, value in (("principal", principal), ("annual_rate", annual_rate), ("prepayment", prepayment)):
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or (isinstance(value, float) and not math.isfinite(value)):
             raise ValueError(f"{name} must be a finite number")
     if principal < 0.01 or principal > 1e15 or annual_rate < 0 or annual_rate > 100 or prepayment < 0:
         raise ValueError("amount or rate out of range")
@@ -17,8 +17,8 @@ def calculate(principal, annual_rate, months, prepayment=0):
         money = lambda v: v.quantize(cents, rounding=ROUND_HALF_UP)
         balance = money(Decimal(str(principal)))
         initial = balance
-        rate = Decimal(str(annual_rate)) / 1200
-        extra = money(Decimal(str(prepayment)))
+        rate = Decimal(0) if annual_rate < 1e-28 else Decimal(str(annual_rate)) / 1200
+        extra = money(min(Decimal(str(prepayment)), balance))
         payment = money(balance / months if rate == 0 else balance * rate / (1 - (1 + rate) ** (-months)))
         total_interest = Decimal(0)
         total_paid = Decimal(0)

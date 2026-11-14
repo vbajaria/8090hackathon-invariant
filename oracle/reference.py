@@ -6,7 +6,7 @@ import math
 def reference(data):
     p, a, n, e = (data[k] for k in ("principal", "annual_rate", "months", "prepayment"))
     for v in (p, a, e):
-        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or (isinstance(v, float) and not math.isfinite(v)):
             raise ValueError("finite numeric inputs required")
     if not .01 <= p <= 1e15 or not 0 <= a <= 100 or e < 0:
         raise ValueError("outside financial domain")
@@ -15,7 +15,9 @@ def reference(data):
     with localcontext() as ctx:
         ctx.prec = 60
         q = lambda x: x.quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
-        principal, extra, rate = q(Decimal(str(p))), q(Decimal(str(e))), Decimal(str(a)) / Decimal(1200)
+        principal = q(Decimal(str(p)))
+        extra = q(min(Decimal(str(e)), principal))
+        rate = Decimal(0) if a < 1e-28 else Decimal(str(a)) / Decimal(1200)
         # Positive-power annuity expression, independently derived from the discounted formula.
         growth = (Decimal(1) + rate) ** n
         payment = q(principal / n if rate == 0 else principal * rate * growth / (growth - 1))

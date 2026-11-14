@@ -26,7 +26,7 @@ def cents(value: Decimal) -> Decimal:
 
 def calculate(principal: float, annual_rate: float, months: int, prepayment: float = 0) -> LoanResult:
     for name, value in (("principal", principal), ("annual_rate", annual_rate), ("prepayment", prepayment)):
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or (isinstance(value, float) and not math.isfinite(value)):
             raise ValueError(f"{name} must be a finite number")
     if not 0.01 <= principal <= 1e15 or not 0 <= annual_rate <= 100 or prepayment < 0:
         raise ValueError("amount or rate out of range")
@@ -34,7 +34,9 @@ def calculate(principal: float, annual_rate: float, months: int, prepayment: flo
         raise ValueError("months must be an integer from 1 to 1200")
     with localcontext() as context:
         context.prec = 50
-        loan = Loan(cents(Decimal(str(principal))), Decimal(str(annual_rate)) / 1200, months, cents(Decimal(str(prepayment))))
+        amount = cents(Decimal(str(principal)))
+        rate = Decimal(0) if annual_rate < 1e-28 else Decimal(str(annual_rate)) / 1200
+        loan = Loan(amount, rate, months, cents(min(Decimal(str(prepayment)), amount)))
         factor = (1 + loan.monthly_rate) ** (-loan.term)
         installment = cents(loan.principal / loan.term if not loan.monthly_rate else loan.principal * loan.monthly_rate / (1 - factor))
         balance, interest_sum, paid_sum, elapsed = loan.principal, Decimal(0), Decimal(0), 0

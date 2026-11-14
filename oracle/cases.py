@@ -30,6 +30,8 @@ def fixed_cases():
         ('over-prepayment', 'prepayment', loan(1000, 5, 12, 100000), 'boundary'),
         ('half-cent', 'rounding', loan(100.005, 6, 12, .005), 'precision'),
         ('large-principal', 'rounding', loan(1e15, 5, 360), 'precision'),
+        ('tiny-rate', 'rounding', loan(1000, 1e-300, 12), 'precision'),
+        ('huge-prepayment', 'prepayment', loan(1000, 5, 12, 1e308), 'boundary'),
         ('upper-rate', 'rate', loan(1000, 100, 24), 'boundary'),
     ]
     invalid = [('negative-principal', 'principal', loan(-1)), ('zero-principal', 'principal', loan(0)),

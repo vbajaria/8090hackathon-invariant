@@ -16,7 +16,7 @@ from .reference import reference
 POLICIES = {
     'contract': ('Callable adapter and result contract', 'adapter', 'Export calculate(principal, annual_rate, months, prepayment=0); return finite monetary fields and integer payoff months.'),
     'principal': ('Principal domain', 'validation', 'Finite numeric principal from 0.01 through 1e15; booleans are not numbers.'),
-    'rate': ('Annual percentage rate domain', 'validation', 'Finite annual percentage from 0 through 100.'),
+    'rate': ('Annual percentage rate domain', 'validation', 'Finite annual percentage from 0 through 100; below 1e-28 is treated as zero at this monetary precision.'),
     'term': ('Term and payoff bounds', 'boundary', 'Integer term 1..1200 and payoff duration 1..term.'),
     'prepayment': ('Monthly extra principal payment', 'financial', 'Nonnegative finite monthly prepayment reduces balance, with payment capped at amount due.'),
     'zero-rate': ('Zero interest amortization', 'golden', 'Zero-rate loans charge no interest and repay all principal.'),
@@ -70,7 +70,7 @@ def valid_result(result, data):
 
 def agrees(actual, reference_result, data):
     if reference_result['kind'] == 'error':
-        return actual['kind'] == 'error' and actual['errorType'] == 'ValueError'
+        return reference_result['errorType'] == 'ValueError' and actual['kind'] == 'error' and actual['errorType'] == 'ValueError'
     if not valid_result(actual, data):
         return False
     a, b = actual['value'], reference_result['value']
