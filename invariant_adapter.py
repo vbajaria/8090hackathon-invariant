@@ -1,4 +1,8 @@
-"""CONTROLLED REGRESSION: monthly extra principal is ignored. Demo only."""
+"""Correction of the deliberate prepayment demo defect (WO-2).
+
+This branch targets the controlled demonstration, not the modernization branch.
+Monthly extra principal is included in each capped payment.
+"""
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP, localcontext
 import math
@@ -44,7 +48,7 @@ def calculate(principal: float, annual_rate: float, months: int, prepayment: flo
             elapsed += 1
             interest = cents(balance * loan.monthly_rate)
             outstanding = balance + interest
-            amount = outstanding if elapsed == loan.term else min(outstanding, installment)  # CONTROLLED REGRESSION
+            amount = outstanding if elapsed == loan.term else min(outstanding, installment + loan.extra)
             balance = cents(outstanding - amount)
             interest_sum += interest
             paid_sum += amount
