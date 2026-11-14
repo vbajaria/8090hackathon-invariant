@@ -269,7 +269,7 @@ export function InvariantApp() {
             : name === "attach"
             ? "Existing 8090 work order associated with this run."
           : name === "remediate"
-              ? "Remediation work order created."
+              ? "Remediation work order connected."
               : "Factory artifacts refreshed.",
       );
     } catch (e) {
@@ -692,7 +692,7 @@ function DashboardView({
       <section className="hero-card">
         <div className="hero-copy">
           <span className="hero-badge">
-            <span /> PROOF, NOT PROMISES
+            <span /> EVIDENCE, NOT PROMISES
           </span>
           <h2>
             Modernize the code.
@@ -764,7 +764,7 @@ function DashboardView({
             label: "Verification runs",
             value: dashboard?.stats.runs,
             icon: Workflow,
-            suffix: "TOTAL EXECUTIONS",
+            suffix: "RECENT RUNS",
           },
           {
             label: "Invariants captured",
@@ -1655,6 +1655,7 @@ function EvidenceView({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [findingIds, setFindingIds] = useState<string[]>([]);
+  const [existingRemediation, setExistingRemediation] = useState("");
   const evidence = run.evidence;
   useEffect(() => {
     setSelected(null);
@@ -1667,7 +1668,7 @@ function EvidenceView({
           <div>
             <div className="eyebrow">EVIDENCE EXPLORER</div>
             <h1>
-              Proof takes precedence<span className="heading-dot">.</span>
+              Evidence takes precedence<span className="heading-dot">.</span>
             </h1>
             <p>{run.name}</p>
           </div>
@@ -1994,20 +1995,24 @@ function EvidenceView({
           </div>
           <Button
             disabled={!findingIds.length || busy !== null}
-            onClick={() => void onAction("remediate", { findingIds })}
+            onClick={() => void onAction("remediate", { findingIds, ...(existingRemediation.trim() ? { workOrderId: existingRemediation.trim() } : {}) })}
           >
             {busy === "remediate" ? (
               <Loader2 className="spin" size={14} />
             ) : (
               <Plus size={14} />
             )}
-            Create remediation
+            {existingRemediation.trim() ? "Associate remediation" : "Create remediation"}
             {findingIds.length > 0 && (
               <span className="button-count">{findingIds.length}</span>
             )}
           </Button>
         </section>
       )}
+      {evidence.findings.length > 0 && (
+        <div className="field existing-remediation-field"><label htmlFor="existing-remediation">Existing remediation work order UUID (optional)</label><input id="existing-remediation" placeholder="Leave empty to create a new 8090 work order" value={existingRemediation} onChange={e => setExistingRemediation(e.target.value)} /><p className="micro-text">Associate an existing correction without creating duplicate work. Select the measured findings above.</p></div>
+      )}
+      {!!run.remediations?.length && <section className="panel remediation-history"><h2>Remediation history</h2>{run.remediations.map(rem => <div key={rem.workOrder.id}><a className="inline-link" href={rem.workOrder.url} target="_blank" rel="noreferrer">WO-{rem.workOrder.number} · {rem.workOrder.title}</a><span>{rem.workOrder.status}</span><p>{rem.resolvedAt ? `Independent full-suite correction verified at ${date(rem.resolvedAt)} against ${rem.lastVerifiedCandidate?.slice(0, 12)}. No merge or approval performed.` : "Correction awaits independent re-verification of the target commit."}</p></div>)}</section>}
       <div className="report-notes-grid">
         <section className="panel report-notes">
           <h2>

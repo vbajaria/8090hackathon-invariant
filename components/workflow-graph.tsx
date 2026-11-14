@@ -21,5 +21,5 @@ export function WorkflowGraph({ run }: { run: Run }) {
     for (const track of [run.factorySteps, run.oracleSteps]) if (track.length) edges.push({ id: `${track.at(-1)!.id}-report`, source: track.at(-1)!.id, target: "report", style: { stroke: "#65e3bd" } });
     return { nodes, edges };
   }, [run.factorySteps, run.oracleSteps, run.evidence]);
-  return <details className="panel workflow-graph"><summary>Explore the live verification graph <span>Actual recorded states · read-only</span></summary><div className="graph-canvas"><ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} nodesDraggable={false} nodesConnectable={false} fitView colorMode="dark" minZoom={0.3} maxZoom={1.5} proOptions={{ hideAttribution: true }}><Background color="#26302d" gap={18} /><Controls showInteractive={false} /></ReactFlow></div></details>;
+  return <details className="panel workflow-graph"><summary>Explore the live verification graph <span>Actual recorded states · read-only</span></summary><div className="graph-canvas"><ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} nodesDraggable={false} nodesConnectable={false} fitView colorMode="dark" minZoom={0.3} maxZoom={1.5}><Background color="#26302d" gap={18} /><Controls showInteractive={false} /></ReactFlow></div></details>;
 }

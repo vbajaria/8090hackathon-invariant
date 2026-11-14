@@ -5,6 +5,9 @@ import importlib.util
 import inspect
 import math
 import time
+import platform
+import sys
+import importlib.metadata
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -27,6 +30,15 @@ POLICIES = {
     'metamorphic': ('Prepayment monotonicity', 'metamorphic', 'Increasing monthly extra cannot increase interest or payoff duration; scheduled payment stays unchanged.'),
 }
 CLASSIFICATIONS = {'MUST_PRESERVE', 'INTENTIONAL_CHANGE', 'UNKNOWN'}
+RECOMMENDATIONS = {
+    'prepayment': 'Apply installment plus monthly extra principal, cap the amount at outstanding principal plus interest, and record actual payoff duration. Replay the shrunk input and full suite.',
+    'zero-rate': 'Use principal divided by term for zero interest; do not evaluate the positive-rate annuity division, and never charge phantom interest.',
+    'rounding': 'Preserve ROUND_HALF_UP cent rounding order, monthly extra principal and final settlement for the recorded input. Inspect the ledger to isolate the cause before changing precision.',
+    'reference': 'Compare the recorded cash flows with the independent Decimal reference; check annual-rate conversion (percentage / 1200), the annuity, monthly extra principal and final settlement.',
+    'ledger': 'Preserve principal plus charged interest equals total paid; cap payments at amount due and settle remaining cents at the contractual final month.',
+    'metamorphic': 'Increasing monthly extra principal must not increase interest or payoff duration, and must not change the scheduled installment. Replay both recorded inputs.',
+}
+
 
 
 def sanitize(value):
@@ -256,7 +268,7 @@ def verify(baseline_path, candidate_path, baseline_ref, candidate_ref, classific
                 original=record['original'], candidate=record['candidate'], input=sanitize(record['input']),
                 sourceLocations=[{'file': baseline_source['file'], 'line': baseline_source['line']}, inv['source']],
                 recommendation='Review baseline defect against financial requirements; do not preserve it blindly.' if baseline_bad else
-                    'Confirm the approved policy change and document its scope.' if inv['classification'] != 'MUST_PRESERVE' else 'Restore independent reference agreement and rerun the oracle.',
+                    'Confirm the approved policy change and document its scope.' if inv['classification'] != 'MUST_PRESERVE' else RECOMMENDATIONS.get(inv['id'], 'Restore the documented input/result contract for the recorded case and rerun the independent suite.'),
                 minimal=bool(record.get('minimal')), baselineInvalid=baseline_bad, reference=record['reference'],
                 caseIds=[r['id'] for r in records],
                 **{k: record[k] for k in ('increasedInput', 'increasedReference', 'originalIncreasedPrepayment', 'candidateIncreasedPrepayment') if k in record}))
@@ -275,7 +287,7 @@ def verify(baseline_path, candidate_path, baseline_ref, candidate_ref, classific
     return sanitize(dict(verdict=verdict, invariants=invariants, findings=findings,
         summary={'total': len(context.records), 'passed': sum(r['passed'] for r in context.records), 'failed': sum(not r['passed'] for r in context.records), 'durationMs': round((time.perf_counter() - started) * 1000)},
         baseline=provenance(baseline_path, baseline_ref, 'baseline'), candidate=provenance(candidate_path, candidate_ref, 'candidate'),
-        executionCounts=context.execution_counts, sourceChanged=source_changed, dependencyHashes=dependency_hashes, dependencyChanged=dependency_changed, generatedAt=datetime.now(timezone.utc).isoformat(),
+        environment={"python": sys.version, "platform": platform.platform(), "pytest": importlib.metadata.version("pytest"), "hypothesis": importlib.metadata.version("hypothesis")}, executionCounts=context.execution_counts, sourceChanged=source_changed, dependencyHashes=dependency_hashes, dependencyChanged=dependency_changed, generatedAt=datetime.now(timezone.utc).isoformat(),
         methodology=['Actual pytest execution of both adapters on boundary, golden, invalid, precision, property and metamorphic cases.',
                      'Seeded Hypothesis generation; explicit hypothesis.find shrinking of candidate/reference counterexamples.',
                      'Independent 60-digit Decimal annuity and monthly cash-flow ledger; baseline is not the source of truth.',

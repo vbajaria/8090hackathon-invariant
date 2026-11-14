@@ -20,3 +20,10 @@
 - Separate NOT-FOR-MERGE controlled regression PR #3 (`2ced874262abbd504f78e27e47902af590fe9037`) ignores prepayment and produces genuine differential failures. WO-2 correction PR #4 (`320e9ec9d5d45532a98c05b3655ee357934fc86f`) verifies 156/156 with 8 focused unit tests. Nothing is merged or approved.
 - Harden modular repository verification with separate persistent Python interpreter workers. A shared interpreter can incorrectly reuse baseline packages in the candidate. Ignore inherited PYTHONPATH, use each checkout's root, compile captured adapter bytes, strip credentials, distinguish worker transport failures from business violations.
 - Clear the displayed current report when re-verification starts, preserving append-only report files and remediation history. A prior candidate's verdict must never appear to describe a newly selected ref.
+
+## 2026-11-14 — End-to-end verification and operating model
+- Application retrieved immutable remote Git commits for the real modernization, controlled drift and correction. Verified the preserving implementation, detected the controlled defect, associated existing WO-2, then verified the correction with full-suite execution. Use existing-order association to avoid duplicating modernization/remediation work.
+- Persist remediation history across re-verification; mark a correction independently verified only after a verified full-suite report, without closing/merging/approving its PR.
+- Record exact Python/pytest/Hypothesis versions, pin oracle dependencies, hash verification-engine files and loaded Python dependencies, and provide checkout-based replay commands in Markdown reports.
+- Keep deployment to one long-running Node process with local Python and SQLite. Do not claim stateless/serverless support or hostile-code sandboxing. Provide optional HTTP Basic authentication for shared deployments; require HTTPS and a configured password outside the private development workspace.
+- Use real API/browser/oracle tests. Keep React Flow's attribution, avoid formal-proof marketing, and retain explicit finite-scope limitations.

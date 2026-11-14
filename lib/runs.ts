@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { mkdir, copyFile, readFile, writeFile, realpath, stat } from "node:fs/promises";
+import { mkdir, copyFile, readFile, writeFile, realpath, stat, readdir } from "node:fs/promises";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { z } from "zod";
@@ -37,7 +37,7 @@ export function launch(id: string, action: () => Promise<void>) {
   jobs.set(id, promise);
 }
 export function recoverRun(run: Run): Run {
-  if (run.status === "running" && !jobs.has(run.id)) return update(run.id, r => { r.status = "failed"; r.error = "The server restarted during execution. Re-run verification; incomplete evidence is not accepted."; r.oracleSteps = r.oracleSteps.map(s => s.status === "running" ? { ...s, status: "failed", detail: r.error } : s); });
+  if (run.status === "running" && !jobs.has(run.id)) return update(run.id, r => { r.status = "failed"; r.evidence = undefined; r.error = "The server restarted during execution. Re-run verification; incomplete evidence is not accepted."; r.oracleSteps = r.oracleSteps.map(s => s.status === "running" ? { ...s, status: "failed", detail: r.error } : s); });
   return run;
 }
 export async function createRun(raw: unknown) {
@@ -73,6 +73,11 @@ async function runOracle(run: Run, baseline: string, candidate: string, classifi
   if (result.code !== 0) throw new Error(`Independent oracle exited ${result.code}: ${result.stderr.slice(-1500)}`);
   const evidence = JSON.parse(result.stdout) as Evidence;
   if (!evidence.verdict || !Array.isArray(evidence.cases) || !Array.isArray(evidence.invariants) || !Number.isFinite(evidence.summary?.total)) throw new Error("Oracle returned invalid evidence.");
+  const sourceHashes: Record<string, string> = {};
+  for (const file of (await readdir(path.resolve("oracle"))).filter(file => file.endsWith(".py")).sort()) {
+    sourceHashes[`oracle/${file}`] = createHash("sha256").update(await readFile(path.resolve("oracle", file))).digest("hex");
+  }
+  evidence.verificationEngine = { gitCommit: await checked("git", ["rev-parse", "HEAD"]), sourceHashes, repositoryStatus: await checked("git", ["status", "--porcelain"]) };
   return evidence;
 }
 async function capture(id: string) {
@@ -129,7 +134,7 @@ async function verify(id: string, classifications?: Record<string, Classificatio
 }
 export function startVerification(id: string, raw: unknown) {
   const input = verifySchema.parse(raw); const run = requireRun(id);
-  if (!run.baselinePath) throw new RunError("Baseline capture has not completed.", 409);
+  if (!run.baselinePath || run.oracleSteps[0].status !== "completed") throw new RunError("Successful baseline capture has not completed. Create a new run if original capture failed.", 409);
   if (jobs.has(id) || mutations.has(id)) throw new RunError("This run is busy.", 409);
   const known = new Set(run.evidence?.invariants.map(i => i.id) || []);
   if (input.classifications && Object.keys(input.classifications).some(k => !known.has(k))) throw new RunError("Classification must reference an existing invariant ID.");
@@ -213,13 +218,19 @@ export async function attachRun(id: string, raw: unknown) { return serialize(id,
   return synchronize(id);
 }); }
 export async function remediateRun(id: string, raw: unknown) { return serialize(id, async () => {
-  const input = z.object({ findingIds: z.array(z.string()).min(1).max(100) }).parse(raw);
+  const input = z.object({ findingIds: z.array(z.string()).min(1).max(100), workOrderId: z.uuid().optional() }).parse(raw);
   const run = requireRun(id); if (!run.evidence) throw new RunError("Execute independent verification first.");
   const selected = run.evidence.findings.filter(f => input.findingIds.includes(f.id));
   if (selected.length !== new Set(input.findingIds).size) throw new RunError("Unknown finding selected.");
   if (selected.some(f => f.remediationWorkOrder)) throw new RunError("A remediation work order already exists for one of these findings.", 409);
   if (selected.some(f => f.classification !== "MUST_PRESERVE")) throw new RunError("Review unknown/intentional-change findings before requesting corrective remediation.");
-  const order = await createFactoryWorkOrder(`Fix amortization behavioral drift · ${run.id.slice(0, 8)}`, remediationDescription(run, input.findingIds), run.projectId, `invariant-remediate-${run.id}-${createHash("sha256").update(input.findingIds.slice().sort().join(",")).digest("hex").slice(0, 16)}`, order => update(id, r => {
+  let order;
+  if (input.workOrderId) {
+    const data = unwrap(await factoryRequest(`/work_orders/${input.workOrderId}`));
+    if (!data.markdown_content) throw new RunError("Existing remediation must have its actual correction context.");
+    order = normalizeWorkOrder(data, run.projectId);
+    update(id, r => { r.remediations ||= []; r.remediations.push({ workOrder: order!, findingIds: input.findingIds, createdAt: new Date().toISOString() }); });
+  } else order = await createFactoryWorkOrder(`Fix amortization behavioral drift · ${run.id.slice(0, 8)}`, remediationDescription(run, input.findingIds), run.projectId, `invariant-remediate-${run.id}-${createHash("sha256").update(input.findingIds.slice().sort().join(",")).digest("hex").slice(0, 16)}`, order => update(id, r => {
     for (const f of r.evidence!.findings) if (input.findingIds.includes(f.id)) f.remediationWorkOrder = order;
     r.remediations ||= []; r.remediations.push({ workOrder: order, findingIds: input.findingIds, createdAt: new Date().toISOString() });
   }));
@@ -227,6 +238,6 @@ export async function remediateRun(id: string, raw: unknown) { return serialize(
     for (const f of r.evidence!.findings) if (input.findingIds.includes(f.id)) f.remediationWorkOrder = order;
     const rem = r.remediations?.find(m => m.workOrder.id === order.id); if (rem) rem.workOrder = order;
   });
-  audit(id, "remediation_created", `WO-${order.number}: ${input.findingIds.join(",")}`); return requireRun(id);
+  audit(id, input.workOrderId ? "remediation_associated" : "remediation_created", `WO-${order.number}: ${input.findingIds.join(",")}`); return requireRun(id);
 }); }
 export function dashboardStats() { const runs = listRuns().map(recoverRun); return { runs, stats: { runs: runs.length, regressions: runs.reduce((n,r) => n + (r.evidence?.findings.filter(f => f.classification === "MUST_PRESERVE").length || 0), 0), invariants: runs.reduce((n,r) => n + (r.evidence?.invariants.filter(i => i.status === "passed" || i.status === "verified").length || 0), 0), reports: runs.filter(r => r.evidence).length } }; }
