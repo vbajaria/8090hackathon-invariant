@@ -42,3 +42,10 @@
 - Keep PR #3 (deliberately broken controlled regression) and PR #4 (correction of that demonstration branch) separate from `main`. The preserving implementation in PR #2 already has correct prepayment behavior; applying the demonstration-only patch to main would overwrite the modular adapter and add no release functionality.
 - This is a direct user-authorized release action. INVARIANT itself still never auto-merges or approves a candidate based on finite verification.
 - Integrate the current application base into the existing financial PR before its release merge. The integrated refactor passes 48 component tests and 156 independent case assessments; include the financial component tests in release CI.
+
+## 2026-11-14 — Local Docker launcher
+- Package Next.js, SQLite, Git and the independent Python oracle in one multi-stage Debian-based container; do not introduce a separate verification service or database server. Default local launch uses the compiled app, not a host-dependency/hot-reload bind mount.
+- Bind only loopback on the development machine. Persist SQLite, captured repositories and evidence in a named volume; normal stop/rebuild never deletes it. Run as a non-root user with dropped Linux capabilities and no Docker socket mount.
+- Exclude all developer .env files, .git metadata, runtime data and host dependencies from the build context. Runtime credentials come from the ignored private .env.docker, never build arguments or image layers.
+- Record the genuine source revision and dirty-build indicator as non-secret build metadata. Images without metadata explicitly report an unknown revision; do not invent a synthetic Git repository/commit just to make verification execute. Real repository checkout commits and executed source hashes remain independent provenance.
+- Use a cheap SQLite readiness check, independent of 8090 connectivity, with support for configured Basic authentication. Docker packaging is not a security sandbox for untrusted repository code.
