@@ -41,3 +41,4 @@
 - Use merge commits to preserve the original commit IDs referenced by behavioral evidence; do not squash/rewrite the verified history.
 - Keep PR #3 (deliberately broken controlled regression) and PR #4 (correction of that demonstration branch) separate from `main`. The preserving implementation in PR #2 already has correct prepayment behavior; applying the demonstration-only patch to main would overwrite the modular adapter and add no release functionality.
 - This is a direct user-authorized release action. INVARIANT itself still never auto-merges or approves a candidate based on finite verification.
+- Integrate the current application base into the existing financial PR before its release merge. The integrated refactor passes 48 component tests and 156 independent case assessments; include the financial component tests in release CI.
