@@ -1,35 +1,51 @@
-"""Genuine amortization baseline. Annual rate is a percentage; prepayment is monthly."""
+"""CONTROLLED REGRESSION: monthly extra principal is ignored. Demo only."""
+from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP, localcontext
 import math
+from typing import TypedDict
 
 
-def calculate(principal, annual_rate, months, prepayment=0):
+class LoanResult(TypedDict):
+    payment: float
+    total_interest: float
+    total_paid: float
+    months: int
+
+
+@dataclass(frozen=True)
+class Loan:
+    principal: Decimal
+    monthly_rate: Decimal
+    term: int
+    extra: Decimal
+
+
+def cents(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def calculate(principal: float, annual_rate: float, months: int, prepayment: float = 0) -> LoanResult:
     for name, value in (("principal", principal), ("annual_rate", annual_rate), ("prepayment", prepayment)):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or (isinstance(value, float) and not math.isfinite(value)):
             raise ValueError(f"{name} must be a finite number")
-    if principal < 0.01 or principal > 1e15 or annual_rate < 0 or annual_rate > 100 or prepayment < 0:
+    if not 0.01 <= principal <= 1e15 or not 0 <= annual_rate <= 100 or prepayment < 0:
         raise ValueError("amount or rate out of range")
     if isinstance(months, bool) or not isinstance(months, int) or not 1 <= months <= 1200:
         raise ValueError("months must be an integer from 1 to 1200")
-    with localcontext() as ctx:
-        ctx.prec = 50
-        cents = Decimal("0.01")
-        money = lambda v: v.quantize(cents, rounding=ROUND_HALF_UP)
-        balance = money(Decimal(str(principal)))
-        initial = balance
+    with localcontext() as context:
+        context.prec = 50
+        amount = cents(Decimal(str(principal)))
         rate = Decimal(0) if annual_rate < 1e-28 else Decimal(str(annual_rate)) / 1200
-        extra = money(balance if prepayment >= balance else Decimal(str(prepayment)))
-        payment = money(balance / months if rate == 0 else balance * rate / (1 - (1 + rate) ** (-months)))
-        total_interest = Decimal(0)
-        total_paid = Decimal(0)
-        elapsed = 0
-        for elapsed in range(1, months + 1):
-            interest = money(balance * rate)
-            due = balance + interest
-            paid = due if elapsed == months else min(payment + extra, due)
-            balance = money(due - paid)
-            total_interest += interest
-            total_paid += paid
-            if balance == 0:
-                break
-        return {"payment": float(payment), "total_interest": float(total_interest), "total_paid": float(total_paid), "months": elapsed}
+        loan = Loan(amount, rate, months, cents(amount if prepayment >= amount else Decimal(str(prepayment))))
+        factor = (1 + loan.monthly_rate) ** (-loan.term)
+        installment = cents(loan.principal / loan.term if not loan.monthly_rate else loan.principal * loan.monthly_rate / (1 - factor))
+        balance, interest_sum, paid_sum, elapsed = loan.principal, Decimal(0), Decimal(0), 0
+        while balance and elapsed < loan.term:
+            elapsed += 1
+            interest = cents(balance * loan.monthly_rate)
+            outstanding = balance + interest
+            amount = outstanding if elapsed == loan.term else min(outstanding, installment)  # CONTROLLED REGRESSION
+            balance = cents(outstanding - amount)
+            interest_sum += interest
+            paid_sum += amount
+        return {"payment": float(installment), "total_interest": float(interest_sum), "total_paid": float(paid_sum), "months": elapsed}
