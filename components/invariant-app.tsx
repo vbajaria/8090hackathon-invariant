@@ -48,6 +48,7 @@ import type {
 } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { WorkflowGraph } from "@/components/workflow-graph";
+import { ThemeToggle } from "@/components/theme-provider";
 
 type View = "dashboard" | "new-run" | "execution" | "evidence";
 type Dashboard = {
@@ -434,6 +435,7 @@ export function InvariantApp() {
             </strong>
           </div>
           <div className="topbar-right">
+            <ThemeToggle />
             <button
               className="icon-button"
               aria-label="Software Factory connection details"
